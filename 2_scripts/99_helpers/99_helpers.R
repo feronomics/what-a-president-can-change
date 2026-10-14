@@ -1,0 +1,251 @@
+## Date created:        13 October 2026
+## Original analysis:   21 May 2026 (Fernando Sáenz)
+## Last modification:   13 October 2026
+## Project:             Que todo cambie para que nada cambie
+## Affiliation:         Asociación de Investigación y Estudios Sociales (ASIES)
+## Title:               Shared analysis functions
+## Purpose:             Validation, SARIMA fitting, aggregation, covariates, and plot/table utilities.
+## Inputs / outputs:    Function definitions; called by stages to prepare data and save PNG/CSV outputs.
+## Execution:           Run 2_scripts/0_master.R from R or Rscript.
+## Method provenance:   Refactored from volatility_all_ministries_FIXED.R.
+## -------------------------------------------------------------------------
+
+
+require_columns <- function(data, columns, label) {
+  missing <- setdiff(columns, names(data))
+  if (length(missing)) stop(label, ": missing columns: ", paste(missing, collapse = ", "))
+}
+
+recode_month <- function(month) {
+  months <- c("ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+              "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE")
+  match(toupper(trimws(as.character(month))), months)
+}
+
+fit_volatility <- function(values, dates, program, min_obs = 36L, window = 12L) {
+  # Retain the original active-life rule: trim outside first/last positive
+  # execution; preserve interior zeros, including pauses and returns.
+  active <- which(!is.na(values) & values > 0)
+  if (length(active)) {
+    keep <- seq.int(min(active), max(active))
+    values <- values[keep]
+    dates <- dates[keep]
+  }
+  n <- length(values)
+  result <- data.frame(date = dates, Programa = program, Ejecutado = values,
+                       ypred = NA_real_, noise = NA_real_, index = NA_real_,
+                       index_total = NA_real_, flag = NA_character_)
+  skip <- function(reason) { result$flag <- reason; result }
+  if (any(!is.finite(values))) return(skip("SKIPPED: non-finite execution"))
+  if (any(values <= -1)) return(skip("SKIPPED: execution <= -1; log1p undefined"))
+  if (n < min_obs) return(skip(paste0("SKIPPED: only ", n, " observations (min = ", min_obs, ")")))
+  if (stats::sd(values) == 0) return(skip("SKIPPED: zero/constant series"))
+  series <- stats::ts(log1p(values), start = c(as.integer(format(min(dates), "%Y")),
+                    as.integer(format(min(dates), "%m"))), frequency = 12)
+  model <- tryCatch(stats::arima(series, order = c(1, 1, 0),
+                     seasonal = list(order = c(1, 1, 0), period = 12)),
+                    error = function(e) e)
+  if (inherits(model, "error")) return(skip(paste("SKIPPED: SARIMA error:", conditionMessage(model))))
+  if (!is.null(model$code) && model$code != 0) return(skip("SKIPPED: SARIMA failed to converge"))
+  residuals <- as.numeric(model$residuals)
+  stopifnot(length(residuals) == n)
+  result$ypred <- as.numeric(series) - residuals
+  result$noise <- residuals
+  result$index <- as.numeric(zoo::rollapply(residuals, width = window,
+                    FUN = function(x) stats::sd(x, na.rm = TRUE), align = "right", fill = NA))
+  result$index_total <- stats::sd(residuals, na.rm = TRUE)
+  result$flag <- "OK"
+  result
+}
+
+aggregate_ministry_index <- function(program_results) {
+  valid <- dplyr::filter(program_results, flag == "OK")
+  if (!nrow(valid)) return(data.frame(Ministerio = character(), date = as.Date(character()),
+                                    volatility_index = numeric(), programs_with_index = integer()))
+  valid |>
+    dplyr::group_by(Ministerio, date) |>
+    dplyr::summarise(
+      # Preserve original weights: denominator includes all fitted programs,
+      # including programs whose rolling index is not yet available.
+      volatility_index = if (sum(Ejecutado, na.rm = TRUE) == 0 || all(is.na(index))) NA_real_
+                         else sum(Ejecutado / sum(Ejecutado, na.rm = TRUE) * index, na.rm = TRUE),
+      programs_with_index = sum(!is.na(index)),
+      .groups = "drop"
+    )
+}
+
+# ======================== DESCRIPTIVE ANALYSIS ==============================
+# Program identity is always Ministerio + label, never label alone.
+# Active program = strictly positive execution. Duration = inclusive calendar
+# span between first/last positive month; interior pauses remain included.
+# Annual execution is a SUM of monthly flows. Assigned/current budgets are
+# STOCKS: use December totals, never sum the twelve monthly budget snapshots.
+# Monetary plots use nominal input units, scaled by 1e9; no currency assumption.
+
+safe_mean <- function(x) if (all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
+safe_ratio <- function(numerator, denominator) {
+  denominator <- rep_len(denominator, length(numerator))
+  ifelse(is.finite(denominator) & denominator != 0, numerator / denominator, NA_real_)
+}
+
+short_labels <- function(x, width = 45L) {
+  labels <- trimws(gsub("\\s+", " ", as.character(x)))
+  labels <- ifelse(nchar(labels) > width, paste0(substr(labels, 1, width - 1L), "…"), labels)
+  make.unique(labels, sep = " · ")
+}
+
+program_lifetimes <- function(raw, column) {
+  raw |>
+    dplyr::filter(Ejecutado > 0, !is.na(.data[[column]]), trimws(.data[[column]]) != "") |>
+    dplyr::group_by(Ministerio, Programa = .data[[column]]) |>
+    dplyr::summarise(first_month = min(fecha), last_month = max(fecha),
+                     active_months = dplyr::n_distinct(fecha), .groups = "drop") |>
+    dplyr::mutate(duration_months =
+      (as.integer(format(last_month, "%Y")) - as.integer(format(first_month, "%Y"))) * 12L +
+       as.integer(format(last_month, "%m")) - as.integer(format(first_month, "%m")) + 1L)
+}
+
+annual_accounts <- function(monthly, groups) {
+  execution <- monthly |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(c(groups, "year")))) |>
+    dplyr::summarise(Ejecutado = sum(Ejecutado), months = dplyr::n_distinct(month), .groups = "drop")
+  december <- monthly |>
+    dplyr::filter(month == 12L) |>
+    dplyr::select(dplyr::all_of(c(groups, "year", "Asignado", "Vigente")))
+  dplyr::left_join(execution, december, by = c(groups, "year")) |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(groups))) |>
+    dplyr::arrange(year, .by_group = TRUE) |>
+    dplyr::mutate(growth_pct = 100 * safe_ratio(Ejecutado - dplyr::lag(Ejecutado), dplyr::lag(Ejecutado)),
+                  execution_pct = 100 * safe_ratio(Ejecutado, Vigente),
+                  modification_pct = 100 * safe_ratio(Vigente - Asignado, Asignado)) |>
+    dplyr::ungroup()
+}
+
+prepare_analysis <- function(raw, program_results, diagnostics, config) {
+  raw$year <- as.integer(raw[["Año"]])
+  raw$month <- recode_month(raw$Mes)
+  raw$Programa <- raw[[config$program_column]]
+  ministry_monthly <- raw |>
+    dplyr::group_by(Ministerio, year, month) |>
+    dplyr::summarise(dplyr::across(c(Asignado, Vigente, Ejecutado), sum), .groups = "drop")
+  state_monthly <- ministry_monthly |>
+    dplyr::group_by(year, month) |>
+    dplyr::summarise(dplyr::across(c(Asignado, Vigente, Ejecutado), sum), .groups = "drop")
+  # State is the observed 16 groups; not a claim of full public-sector coverage.
+  state_monthly$group <- "Estado"
+  state_annual <- annual_accounts(state_monthly, "group")
+  ministry_annual <- annual_accounts(ministry_monthly, "Ministerio")
+  active <- raw |>
+    dplyr::filter(Ejecutado > 0) |>
+    dplyr::distinct(Ministerio, Programa, year)
+  ministry_counts <- active |> dplyr::count(Ministerio, year, name = "programs")
+  ministry_counts <- dplyr::left_join(ministry_annual[c("Ministerio", "year")], ministry_counts,
+                                    by = c("Ministerio", "year")) |>
+    dplyr::mutate(programs = tidyr::replace_na(programs, 0L))
+  state_counts <- ministry_counts |> dplyr::group_by(year) |>
+    dplyr::summarise(programs = sum(programs), .groups = "drop")
+  monthly_index <- aggregate_ministry_index(program_results)
+  monthly_index$year <- as.integer(format(monthly_index$date, "%Y"))
+  ministry_volatility <- monthly_index |> dplyr::group_by(Ministerio, year) |>
+    dplyr::summarise(volatility = safe_mean(volatility_index),
+                     indexed_months = sum(!is.na(volatility_index)), .groups = "drop")
+  ministry_volatility <- dplyr::left_join(ministry_annual[c("Ministerio", "year")], ministry_volatility,
+                                         by = c("Ministerio", "year"))
+  state_programs <- program_results
+  state_programs$Ministerio <- "Estado"
+  state_index <- aggregate_ministry_index(state_programs)
+  state_index$year <- as.integer(format(state_index$date, "%Y"))
+  state_volatility <- state_index |> dplyr::group_by(year) |>
+    dplyr::summarise(volatility = safe_mean(volatility_index),
+                     indexed_months = sum(!is.na(volatility_index)), .groups = "drop")
+  state_volatility <- dplyr::left_join(state_annual["year"], state_volatility, by = "year")
+  program_spending <- raw |> dplyr::group_by(Ministerio, Programa) |>
+    dplyr::summarise(execution = sum(Ejecutado), .groups = "drop")
+  threshold_label <- format(config$volatility_threshold, trim = TRUE, scientific = FALSE)
+  category_levels <- c(paste0("Estable (<", threshold_label, ")"),
+                       paste0("Volátil (>", threshold_label, ")"),
+                       paste0("Igual a ", threshold_label), "Sin índice")
+  classes <- dplyr::left_join(program_spending, diagnostics, by = c("Ministerio", "Programa")) |>
+    dplyr::mutate(category = dplyr::case_when(
+      flag != "OK" | is.na(index_total) ~ "Sin índice",
+      index_total < config$volatility_threshold ~ category_levels[1],
+      index_total > config$volatility_threshold ~ category_levels[2],
+      TRUE ~ category_levels[3]))
+  shares <- classes |> dplyr::group_by(category) |>
+    dplyr::summarise(programs = dplyr::n(), execution = sum(execution), .groups = "drop") |>
+    tidyr::complete(category = category_levels, fill = list(programs = 0L, execution = 0)) |>
+    dplyr::mutate(program_pct = 100 * programs / sum(programs),
+                  spending_pct = 100 * safe_ratio(execution, sum(execution)),
+                  category = factor(category, levels = category_levels))
+  lifetimes <- program_lifetimes(raw, config$program_column)
+  program_results$year <- as.integer(format(program_results$date, "%Y"))
+  program_year <- program_results |> dplyr::group_by(Ministerio, Programa, year) |>
+    dplyr::summarise(volatility = safe_mean(index), .groups = "drop")
+  list(raw = raw, state_annual = state_annual, ministry_annual = ministry_annual,
+       state_counts = state_counts, ministry_counts = ministry_counts,
+       state_volatility = state_volatility, ministry_volatility = ministry_volatility,
+       lifetimes = lifetimes,
+       classes = classes, shares = shares, program_year = program_year)
+}
+
+plot_style <- function() {
+  ggplot2::theme_minimal(base_size = 12, base_family = "sans") +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold", size = 17),
+      plot.subtitle = ggplot2::element_text(color = "#475569", size = 10),
+      plot.caption = ggplot2::element_text(color = "#64748b", size = 9, hjust = 0),
+      panel.grid.minor = ggplot2::element_blank(),
+      strip.text = ggplot2::element_text(face = "bold"),
+      legend.position = "bottom", plot.margin = ggplot2::margin(16, 20, 16, 16))
+}
+
+year_axis <- function() ggplot2::scale_x_continuous(breaks = seq(2004, 2025, 3))
+
+save_plot <- function(plot, folder, name, width = 12, height = 7) {
+  path <- file.path(config$output_dir, "3_graphs", folder)
+  dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  if (!is.null(plot$labels$caption)) {
+    plot$labels$caption <- paste(strwrap(plot$labels$caption, width = 110), collapse = "\n")
+  }
+  ggplot2::ggsave(file.path(path, paste0(name, ".png")), plot + plot_style(),
+                 width = width, height = height, units = "in", dpi = 180, bg = "white")
+}
+
+save_table <- function(data, folder, name) {
+  path <- file.path(config$output_dir, "2_tables", folder)
+  dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  utils::write.csv(data, file.path(path, paste0(name, ".csv")), row.names = FALSE, fileEncoding = "UTF-8")
+}
+
+budget_long <- function(data) {
+  data |> dplyr::select(dplyr::any_of("Ministerio"), year, execution_pct, modification_pct) |>
+    tidyr::pivot_longer(c(execution_pct, modification_pct), names_to = "measure", values_to = "percent") |>
+    dplyr::mutate(measure = ifelse(measure == "execution_pct", "Ejecución / vigente", "(Vigente − asignado) / asignado"))
+}
+
+spending_plot <- function(annual, by_ministry = FALSE) {
+  measures <- c("Monto (miles de millones)", "Crecimiento interanual (%)")
+  data <- annual |>
+    dplyr::mutate(amount = Ejecutado / 1e9) |>
+    dplyr::select(dplyr::any_of("Ministerio"), year, amount, growth_pct) |>
+    tidyr::pivot_longer(c(amount, growth_pct), names_to = "measure", values_to = "value") |>
+    dplyr::mutate(measure = factor(ifelse(measure == "amount", measures[1], measures[2]),
+                                   levels = measures))
+  p <- ggplot2::ggplot(data, ggplot2::aes(year, value, color = measure)) +
+    ggplot2::geom_hline(data = data[data$measure == measures[2], ],
+                       mapping = ggplot2::aes(yintercept = 0), color = "#cbd5e1") +
+    ggplot2::geom_line(linewidth = 0.85, na.rm = TRUE) +
+    ggplot2::geom_point(size = if (by_ministry) 1 else 2, na.rm = TRUE) +
+    ggplot2::scale_color_manual(values = stats::setNames(c("#176b87", "#b45309"), measures), guide = "none") +
+    year_axis() +
+    ggplot2::labs(title = if (by_ministry) "Gasto y crecimiento por ministerio" else "Gasto público y crecimiento",
+      subtitle = "Ejecución anual nominal y variación respecto del año anterior · 2004–2025",
+      x = NULL, y = NULL,
+      caption = paste("Fuente: SICOIN. Monto en miles de millones de unidades monetarias; crecimiento en %.",
+                      "El primer año observado de cada grupo no tiene tasa de crecimiento."))
+  if (by_ministry) {
+    p + ggplot2::facet_wrap(ggplot2::vars(Ministerio, measure), ncol = 4, scales = "free_y")
+  } else {
+    p + ggplot2::facet_wrap(~measure, ncol = 2, scales = "free_y")
+  }
+}
+

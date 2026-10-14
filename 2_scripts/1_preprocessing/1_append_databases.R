@@ -1,0 +1,35 @@
+## Date created:        13 October 2026
+## Original analysis:   21 May 2026 (Fernando Sáenz)
+## Last modification:   13 October 2026
+## Project:             Que todo cambie para que nada cambie
+## Affiliation:         Asociación de Investigación y Estudios Sociales (ASIES)
+## Title:               Append ministry databases
+## Purpose:             Bind source rows without aggregation; preserve original columns and provenance.
+## Inputs / outputs:    by ministry/SICOIN_*_FINAL.xlsx [SICOIN] -> unified/SICOIN_consolidated.xlsx.
+## Execution:           Run 2_scripts/0_master.R from R or Rscript.
+## Method provenance:   Refactored from volatility_all_ministries_FIXED.R.
+## -------------------------------------------------------------------------
+
+
+if (!exists("config")) stop("Run 2_scripts/0_master.R first.")
+# Sys.glob also discovers Windows OneDrive reparse-point files that list.files
+# can omit. Source identifiers keep similarly named programs distinct.
+source_files <- sort(Sys.glob(file.path(config$input_dir, "SICOIN_*_FINAL.xlsx")))
+if (!length(source_files)) stop("No SICOIN_*_FINAL.xlsx workbooks found in ", config$input_dir)
+source_rows <- lapply(source_files, function(path) {
+  raw <- readxl::read_xlsx(path, sheet = "SICOIN")
+  require_columns(raw, c("Año", "Mes", "Entidad", "Depto", "Programa",
+                        config$program_column, "Asignado", "Vigente", "Ejecutado"), basename(path))
+  if (any(c("Ministerio", "Archivo_Origen") %in% names(raw))) stop("Reserved provenance columns in ", path)
+  raw$Ministerio <- sub("^SICOIN_(.+?)_(Unificado_)?[0-9]{4}.*$", "\\1", basename(path), perl = TRUE)
+  raw$Archivo_Origen <- basename(path)
+  message("Appending ", raw$Ministerio[1], ": ", nrow(raw), " rows")
+  raw
+})
+consolidated <- dplyr::bind_rows(source_rows)
+stopifnot(nrow(consolidated) == sum(vapply(source_rows, nrow, integer(1))))
+dir.create(dirname(config$unified_file), recursive = TRUE, showWarnings = FALSE)
+writexl::write_xlsx(list(SICOIN = consolidated), config$unified_file)
+message("Saved consolidated database: ", nrow(consolidated), " rows.")
+rm(source_rows, consolidated)
+
