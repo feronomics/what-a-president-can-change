@@ -65,27 +65,111 @@ save_table(
 
 # 3. Pool fitted programs across the state each month; average monthly state
 # indices within each year. This is not a new SARIMA on total state spending.
-p <- ggplot2::ggplot(analysis$state_volatility, ggplot2::aes(year, volatility)) +
+state_volatility <- analysis$state_volatility %>%
+  dplyr::filter(year >= 2005)
+
+# Compare the displayed annual values, giving each available year equal weight.
+# Both requested windows include 2015; these are descriptive reference means,
+# not an estimated break date or a statistical structural-break test.
+period_means <- dplyr::bind_rows(lapply(c(2005L, 2015L), function(first_year) {
+  last_year <- first_year + 10L
+  values <- state_volatility %>%
+    dplyr::filter(year >= first_year, year <= last_year, is.finite(volatility))
+  data.frame(
+    period = paste0(first_year, "–", last_year),
+    first_year = first_year,
+    last_year = last_year,
+    years_available = nrow(values),
+    mean_volatility = safe_mean(values$volatility)
+  )
+}))
+save_table(period_means, folder, "9_promedios")
+
+# Test the monthly index directly, independently of the annual plot values.
+# Compute here on every run so the figure never reads stale stage-6 results.
+state_test_programs <- program_results
+state_test_programs$Ministerio <- "Estado"
+state_test_data <- aggregate_ministry_index(state_test_programs) %>%
+  dplyr::transmute(date, value = volatility_index) %>%
+  dplyr::filter(
+    date >= as.Date("2005-01-01"),
+    date <= as.Date("2025-12-01"),
+    is.finite(value)
+  ) %>%
+  dplyr::arrange(date)
+state_break_tests <- dplyr::bind_rows(lapply(c("mean", "trend"), function(specification) {
+  test_fixed_break(state_test_data, as.Date("2016-01-01"), specification)
+}))
+save_table(state_break_tests, folder, "10_quiebre")
+chow <- state_break_tests %>%
+  dplyr::filter(specification == "trend", test == "Chow F (iid errors)")
+hac <- state_break_tests %>%
+  dplyr::filter(specification == "trend", test == "HAC Wald chi-square (lag 12)")
+mean_hac <- state_break_tests %>%
+  dplyr::filter(specification == "mean", test == "HAC Wald chi-square (lag 12)")
+test_label <- sprintf(
+  "Quiebre evaluado: enero de 2016 · nivel y tendencia\nChow: F(%d, %d) = %.2f; p %s · HAC(12): p = %.3f",
+  chow$df1, chow$df2, chow$statistic,
+  if (chow$p_value < 0.001) "< 0.001" else sprintf("= %.3f", chow$p_value),
+  hac$p_value
+)
+
+p <- ggplot2::ggplot(state_volatility, ggplot2::aes(year, volatility)) +
   ggplot2::geom_line(
     color = "#b45309",
     linewidth = 1
   ) +
   ggplot2::geom_point(color = "#b45309") +
-  year_axis() +
+  ggplot2::annotate(
+    "label",
+    x = 2005.3,
+    y = Inf,
+    label = test_label,
+    hjust = 0,
+    vjust = 1.2,
+    size = 3.4,
+    fill = "white",
+    color = "#334155",
+    linewidth = 0.2
+  ) +
+  ggplot2::geom_segment(
+    data = period_means,
+    ggplot2::aes(
+      x = first_year, xend = last_year,
+      y = mean_volatility, yend = mean_volatility, color = period
+    ),
+    inherit.aes = FALSE,
+    linewidth = 1,
+    linetype = "dashed"
+  ) +
+  ggplot2::scale_color_manual(
+    values = c("2005–2015" = "#176b87", "2015–2025" = "#7c3aed"),
+    labels = sprintf("Media %s: %.3f", period_means$period, period_means$mean_volatility),
+    name = NULL
+  ) +
+  ggplot2::scale_x_continuous(
+    limits = c(2005, 2025),
+    breaks = seq(2005, 2025, 5)
+  ) +
   ggplot2::labs(
     title = "Volatilidad del Estado",
     subtitle = "Promedio anual del índice mensual ponderado por ejecución",
     x = NULL,
     y = "Índice de volatilidad",
-    caption = caption
+    caption = paste(
+      caption,
+      sprintf("Pruebas sobre %d meses; HAC ajusta por autocorrelación. Cambio solo de nivel: HAC p = %.3f.", nrow(state_test_data), mean_hac$p_value),
+      "Medias anuales: 2015 se incluye en ambas ventanas. Fecha evaluada, no estimada."
+    )
   )
 save_plot(
   p,
   folder,
-  "3_volatilidad"
+  "3_volatilidad",
+  center_title = TRUE
 )
 save_table(
-  analysis$state_volatility,
+  state_volatility,
   folder,
   "3_volatilidad"
 )

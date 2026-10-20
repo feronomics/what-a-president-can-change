@@ -4,8 +4,8 @@
 ## Project:             Que todo cambie para que nada cambie
 ## Affiliation:         Asociación de Investigación y Estudios Sociales (ASIES)
 ## Title:               Master pipeline
-## Purpose:             Single master: preprocess programs/payroll, then run analyses 1–5.
-## Inputs / outputs:    Monthly programs and annual payroll -> consolidated data, 33 plots, tables.
+## Purpose:             Single master: preprocess programs/payroll, then run analyses 1–7.
+## Inputs / outputs:    Monthly programs and annual payroll -> consolidated data, 41 plots, tables.
 ## Execution:           Run 2_scripts/0_master.R from R or Rscript.
 ## Method provenance:   Refactored from volatility_all_ministries_FIXED.R.
 ## -------------------------------------------------------------------------
@@ -76,8 +76,7 @@ config <- list(
   rolling_window = 12L,
   volatility_threshold = 0.5,
   payroll_input_dir = file.path("1_databases", "payroll", "by ministry"),
-  payroll_unified_file = file.path("1_databases", "payroll", "unified", "payroll_consolidated.xlsx"),
-  payroll_ministries = c("MINEDUC", "MINGOB")
+  payroll_unified_file = file.path("1_databases", "payroll", "unified", "payroll_consolidated.xlsx")
 )
 
 # ======================== LOAD SHARED HELPERS ===============================
@@ -107,7 +106,7 @@ for (script in c("1_append_databases.R", "2_append_payroll.R")) {
 # Volatility is computed first, so later descriptive/payroll analyses can use it.
 for (script in c(
   "1_volatility_index.R", "2_state_level.R", "3_ministry_level.R",
-  "4_determinants.R", "5_program_level.R"
+  "4_determinants.R", "5_program_level.R", "6_structural_break.R", "7_budget_composition.R"
 )) {
   source(
     file.path("2_scripts", "2_analysis", script),

@@ -114,13 +114,18 @@ save_table(
 )
 
 # 4. Compare annual volatility with the same vertical scale across ministries.
-p <- ggplot2::ggplot(analysis$ministry_volatility, ggplot2::aes(year, volatility)) +
+ministry_volatility <- analysis$ministry_volatility %>%
+  dplyr::filter(year >= 2005)
+p <- ggplot2::ggplot(ministry_volatility, ggplot2::aes(year, volatility)) +
   ggplot2::geom_line(
     color = "#b45309",
     linewidth = 0.8
   ) +
   ggplot2::facet_wrap(~Ministerio, ncol = 4, scales = "fixed") +
-  year_axis() +
+  ggplot2::scale_x_continuous(
+    limits = c(2005, 2025),
+    breaks = seq(2005, 2025, 5)
+  ) +
   ggplot2::labs(
     title = "Volatilidad por ministerio",
     subtitle = "Promedio anual del índice mensual · misma escala en todos los paneles",
@@ -136,7 +141,7 @@ save_plot(
   height = 12
 )
 save_table(
-  analysis$ministry_volatility,
+  ministry_volatility,
   folder,
   "4_volatilidad"
 )

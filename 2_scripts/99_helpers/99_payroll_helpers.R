@@ -6,7 +6,7 @@
 ## Purpose:             Validate annual sources, link harmonized programs, build predictors.
 ## Inputs / outputs:    Function definitions for the annual payroll stages of the master pipeline.
 ## Execution:           Loaded by the single entry point, 0_master.R.
-## Methods:             Exact normalized aliases only; no fuzzy matching or payroll allocation.
+## Methods:             Exact aliases, approved name equivalents and minor spelling fixes.
 ## -------------------------------------------------------------------------
 
 # Normalize label formatting for EXACT linkage: case, accents and punctuation.
@@ -212,7 +212,7 @@ read_payroll_sources <- function(config) {
 # Inputs: annual payroll and the existing program-name crosswalk.
 # Return: every payroll row, its harmonized identity if unique, and match status.
 # Ambiguous/unmatched labels remain missing; do not allocate their spending.
-link_payroll_programs <- function(annual, programs) {
+link_payroll_exact <- function(annual, programs) {
   # Collect existing source-name aliases and their harmonized identities.
   alias_columns <- intersect(c("Programa", "Programa_Estandarizado", "Programa_Final"), names(programs))
   aliases <- dplyr::bind_rows(lapply(alias_columns, function(column) {
@@ -271,6 +271,113 @@ link_payroll_programs <- function(annual, programs) {
   if (nrow(linked) != nrow(annual)) {
     stop("Linkage multiplied payroll rows.")
   }
+
+  linked
+}
+
+# Expand only explicit abbreviations and one verified spelling error.
+# Keep every program number, conjunction and scope word: 11/12 never becomes 13/14.
+# This key is used ONLY for linkage, never to rewrite source or final names.
+payroll_minor_label <- function(x) {
+  label <- toupper(iconv(as.character(x), to = "ASCII//TRANSLIT"))
+  label <- gsub("\\b(PRG|PROG)\\.?\\b", "PROGRAMAS", label)
+  label <- gsub("\\bACTIVIDADADES\\b", "ACTIVIDADES", label)
+
+  label
+}
+
+# Apply the six name equivalences approved by the author on 20 October 2026.
+# These are ministry-specific name decisions, NOT verified code equivalences.
+# Source labels/codes/amounts remain intact; targets must exist in monthly data.
+payroll_approved_names <- function(linked, programs) {
+  rules <- tibble::tribble(
+    ~Ministerio, ~source_name, ~target_name,
+    "MCD",
+    "FOMENTO AL DEPORTE NO FEDERADO Y A LA RECREACION",
+    "FOMENTO AL DEPORTE NO FEDERADO Y LA RECREACION",
+    "MCD",
+    "RESTAURACION, PRESERVACION Y PROTECCION DEL PATRIMONIO CULTURAL Y NATURAL",
+    "PROTECCION, RESTAURACION Y PRESERVACION DEL PATRIMONIO CULTURAL Y NATURAL",
+    "MINFIN",
+    "SERVICIOS DE IMPRENTA",
+    "SERVICIOS DE IMPRESION",
+    "MINGOB",
+    "SERVICIOS MIGRATORIOS Y EXTRANJERIA",
+    "SERVICIOS DE MIGRACION Y EXTRANJERIA",
+    "MINTRAB",
+    "RECREACION DE LOS TRABAJADORES DEL ESTADO",
+    "SERVICIOS DE RECREACION A LOS TRABAJADORES DEL ESTADO",
+    "MSPAS",
+    "SERVICIO DE FORMACION DEL RECURSO HUMANO",
+    "SERVICIOS DE FORMACION DEL RECURSO HUMANO"
+  )
+
+  for (i in seq_len(nrow(rules))) {
+    # Resolve the approved spelling to the exact existing monthly final label.
+    targets <- unique(programs$Programa_Final[
+      programs$Ministerio == rules$Ministerio[i] &
+        payroll_key(programs$Programa_Final) == payroll_key(rules$target_name[i])
+    ])
+    if (length(targets) != 1L) {
+      stop("Approved payroll target missing or ambiguous: ", rules$target_name[i])
+    }
+
+    rows <- which(
+      linked$Ministerio == rules$Ministerio[i] &
+        payroll_key(linked$Nombre_prog) == payroll_key(rules$source_name[i]) &
+        linked$link_method == "unmatched"
+    )
+    linked$Programa_Final[rows] <- targets
+    linked$link_method[rows] <- "approved_name_equivalence"
+  }
+
+  linked
+}
+
+# Retain exact links, apply approved names, then try minor spelling fixes.
+# Ambiguous exact aliases cannot be overridden by the fallback.
+# Final identities always come unchanged from the monthly Programa_Final column.
+link_payroll_programs <- function(annual, programs) {
+  linked <- link_payroll_exact(annual, programs)
+  linked <- payroll_approved_names(linked, programs)
+  pending <- which(linked$link_method == "unmatched")
+
+  if (!length(pending)) {
+    return(linked)
+  }
+
+  # Apply the same conservative comparison spelling on both sides of the join.
+  comparison_annual <- annual[pending, ]
+  comparison_annual$Nombre_prog <- payroll_minor_label(comparison_annual$Nombre_prog)
+  comparison_programs <- programs
+  alias_columns <- intersect(
+    c("Programa", "Programa_Estandarizado", "Programa_Final"),
+    names(programs)
+  )
+
+  # Preserve Programa_Final as the output identity; expand source aliases only.
+  # Include a normalized copy of the final label as another source alias.
+  comparison_programs$Programa <- payroll_minor_label(programs$Programa_Final)
+  comparison_programs$Programa_Estandarizado <- payroll_minor_label(programs$Programa_Final)
+  comparison_sources <- lapply(alias_columns, function(column) {
+    copy <- comparison_programs
+    copy$Programa <- payroll_minor_label(programs[[column]])
+
+    copy
+  })
+  comparison_programs <- dplyr::bind_rows(comparison_sources)
+  fallback <- link_payroll_exact(comparison_annual, comparison_programs)
+  accepted <- which(!is.na(fallback$Programa_Final))
+  rows <- pending[accepted]
+
+  # Record the corrected comparison key and method alongside the untouched name.
+  linked$Programa_Final[rows] <- fallback$Programa_Final[accepted]
+  linked$link_method[rows] <- paste0("minor_spelling_", fallback$link_method[accepted])
+  linked$alias_key[rows] <- fallback$alias_key[accepted]
+  linked$candidates[rows] <- fallback$candidates[accepted]
+  linked$final_year[rows] <- fallback$final_year[accepted]
+  linked$candidates_all[rows] <- fallback$candidates_all[accepted]
+  linked$final_all[rows] <- fallback$final_all[accepted]
 
   linked
 }

@@ -54,6 +54,8 @@ fit_volatility <- function(values, dates, program, min_obs = 36L, window = 12L) 
     noise = NA_real_,
     index = NA_real_,
     index_total = NA_real_,
+    log_valid = is.finite(values) & values > -1,
+    rolling_residuals = NA_integer_,
     flag = NA_character_
   )
   skip <- function(reason) {
@@ -65,12 +67,16 @@ fit_volatility <- function(values, dates, program, min_obs = 36L, window = 12L) 
     return(skip("SKIPPED: non-finite execution"))
   }
 
-  if (any(values <= -1)) {
-    return(skip("SKIPPED: execution <= -1; log1p undefined"))
-  }
-
   if (n < min_obs) {
     return(skip(paste0("SKIPPED: only ", n, " observations (min = ", min_obs, ")")))
+  }
+
+  # Preserve the full monthly calendar and raw amounts. Only the unusable log
+  # observations become missing; one accounting correction does not drop a program.
+  log_values <- rep(NA_real_, n)
+  log_values[result$log_valid] <- log1p(values[result$log_valid])
+  if (sum(result$log_valid) < min_obs) {
+    return(skip(paste0("SKIPPED: only ", sum(result$log_valid), " valid log observations (min = ", min_obs, ")")))
   }
 
   if (stats::sd(values) == 0) {
@@ -79,7 +85,7 @@ fit_volatility <- function(values, dates, program, min_obs = 36L, window = 12L) 
 
   # Fit SARIMA to log execution using the actual first active month.
   series <- stats::ts(
-    log1p(values),
+    log_values,
     start = c(
       as.integer(format(min(dates), "%Y")),
       as.integer(format(min(dates), "%m"))
@@ -110,14 +116,24 @@ fit_volatility <- function(values, dates, program, min_obs = 36L, window = 12L) 
   # Calculate fitted log execution and trailing residual standard deviations.
   residuals <- as.numeric(model$residuals)
   stopifnot(length(residuals) == n)
+  residuals[!result$log_valid] <- NA_real_
   result$ypred <- as.numeric(series) - residuals
   result$noise <- residuals
   result$index <- as.numeric(zoo::rollapply(
     residuals,
     width = window,
     FUN = function(x) {
-      stats::sd(x, na.rm = TRUE)
+      if (sum(is.finite(x)) >= 2L) stats::sd(x, na.rm = TRUE) else NA_real_
     },
+    align = "right",
+    fill = NA
+  ))
+  # Record window coverage: twelve calendar months can contain fewer usable
+  # residuals. Match the original missing-residual SD convention transparently.
+  result$rolling_residuals <- as.integer(zoo::rollapply(
+    as.integer(is.finite(residuals)),
+    width = window,
+    FUN = sum,
     align = "right",
     fill = NA
   ))
@@ -408,6 +424,88 @@ plot_style <- function() {
     )
 }
 
+# Bartlett Newey-West covariance for monthly OLS residuals, without new packages.
+# Inputs: fitted lm and lag truncation. Return: coefficient covariance matrix.
+# No prewhitening; multiply by n/(n-k) for the residual degrees-of-freedom correction.
+break_hac_covariance <- function(model, lag = 12L) {
+  design <- stats::model.matrix(model)
+  n <- nrow(design)
+  k <- ncol(design)
+  scores <- design * as.numeric(stats::residuals(model))
+  meat <- crossprod(scores)
+
+  for (j in seq_len(min(lag, n - 1L))) {
+    covariance <- crossprod(
+      scores[(j + 1L):n, , drop = FALSE],
+      scores[seq_len(n - j), , drop = FALSE]
+    )
+    meat <- meat + (1 - j / (lag + 1)) * (covariance + t(covariance))
+  }
+
+  bread <- solve(crossprod(design))
+  bread %*% meat %*% bread * n / (n - k)
+}
+
+# Test a fixed-date change in level, or jointly in level and linear trend.
+# Return: classical Chow F and separate HAC Wald tests (12 and 24 months).
+# The date is a supplied hypothesis, not an estimated/data-selected breakpoint.
+test_fixed_break <- function(data, break_date, specification = "mean") {
+  data$post <- as.integer(data$date >= break_date)
+  data$time <- (
+    as.integer(format(data$date, "%Y")) * 12L +
+      as.integer(format(data$date, "%m")) -
+      as.integer(format(break_date, "%Y")) * 12L -
+      as.integer(format(break_date, "%m"))
+  ) / 12
+
+  if (specification == "mean") {
+    restricted <- stats::lm(value ~ 1, data)
+    unrestricted <- stats::lm(value ~ post, data)
+    terms <- "post"
+  } else {
+    restricted <- stats::lm(value ~ time, data)
+    unrestricted <- stats::lm(value ~ time * post, data)
+    terms <- c("post", "time:post")
+  }
+
+  comparison <- stats::anova(restricted, unrestricted)
+  result <- data.frame(
+    specification = specification,
+    break_date = as.character(break_date),
+    n = nrow(data),
+    pre_n = sum(data$post == 0),
+    post_n = sum(data$post == 1),
+    test = "Chow F (iid errors)",
+    statistic = comparison$F[2],
+    df1 = comparison$Df[2],
+    df2 = stats::df.residual(unrestricted),
+    p_value = comparison$`Pr(>F)`[2],
+    level_change = stats::coef(unrestricted)["post"],
+    level_lower = NA_real_,
+    level_upper = NA_real_,
+    row.names = NULL
+  )
+
+  for (lag in c(12L, 24L)) {
+    covariance <- break_hac_covariance(unrestricted, lag)
+    positions <- match(terms, names(stats::coef(unrestricted)))
+    change <- stats::coef(unrestricted)[positions]
+    wald <- drop(t(change) %*% solve(covariance[positions, positions, drop = FALSE], change))
+    level_se <- sqrt(covariance["post", "post"])
+    robust <- result[1, ]
+    robust$test <- paste0("HAC Wald chi-square (lag ", lag, ")")
+    robust$statistic <- wald
+    robust$df1 <- length(terms)
+    robust$df2 <- NA_real_
+    robust$p_value <- stats::pchisq(wald, df = length(terms), lower.tail = FALSE)
+    robust$level_lower <- robust$level_change - stats::qnorm(0.975) * level_se
+    robust$level_upper <- robust$level_change + stats::qnorm(0.975) * level_se
+    result <- dplyr::bind_rows(result, robust)
+  }
+
+  result
+}
+
 # Return the shared calendar-axis breaks used by the time-series plots.
 year_axis <- function() {
   ggplot2::scale_x_continuous(breaks = seq(2004, 2025, 3))
@@ -416,7 +514,7 @@ year_axis <- function() {
 # Export one numbered PNG to the analysis-specific graph folder.
 # Inputs: plot, folder, short filename and dimensions in inches.
 # Render a temporary image before replacing the existing OneDrive output.
-save_plot <- function(plot, folder, name, width = 12, height = 7) {
+save_plot <- function(plot, folder, name, width = 12, height = 7, center_title = FALSE) {
   path <- file.path(config$output_dir, "3_graphs", folder)
   dir.create(path, recursive = TRUE, showWarnings = FALSE)
   if (!is.null(plot$labels$caption)) {
@@ -431,10 +529,19 @@ save_plot <- function(plot, folder, name, width = 12, height = 7) {
     fileext = ".png"
   )
   on.exit(unlink(temporary_plot), add = TRUE)
+  # Apply optional title alignment after the shared theme so it takes precedence.
+  styled_plot <- plot + plot_style()
+  if (center_title) {
+    styled_plot <- styled_plot + ggplot2::theme(
+      plot.title.position = "plot",
+      plot.title = ggplot2::element_text(hjust = 0.5),
+      plot.subtitle = ggplot2::element_text(hjust = 0.5)
+    )
+  }
+
   ggplot2::ggsave(
     temporary_plot,
-    plot +
-      plot_style(),
+    styled_plot,
     width = width,
     height = height,
     units = "in",

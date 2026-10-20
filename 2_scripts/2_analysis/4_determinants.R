@@ -6,7 +6,7 @@
 ## Title:               Payroll and volatility determinants
 ## Purpose:             Correlation, program personnel shares, and four-predictor logistic regression.
 ## Inputs:              Saved annual payroll; harmonized monthly programs and volatility diagnostics.
-## Outputs:             3_output/3_graphs/4_determinants (3 PNGs); supporting tables/model.
+## Outputs:             3_output/3_graphs/4_determinants (4 PNGs); supporting tables/model.
 ## Execution:           Run 2_scripts/0_master.R; payroll retains annual frequency.
 ## Unit of analysis:    One harmonized ministry-program; never repeated annual payroll by month.
 ## Threshold:           config$volatility_threshold (0.5); equality remains unclassified.
@@ -158,82 +158,67 @@ save_plot(
   height = 7
 )
 
-# ======================== 2. PAYROLL SHARE BY PROGRAM =======================
-# Explicit examples originally requested: MINEDUC and MINGOB. Do not assert
-# that these are automatically the two most stable ministries in this release.
-selected <- covariates %>%
-  dplyr::filter(Ministerio %in% config$payroll_ministries) %>%
-  dplyr::arrange(Ministerio, Programa)
-if (!nrow(selected)) {
-  stop("Configured ministries absent from program data.")
-}
+# ======================== 2. PAYROLL BY VOLATILITY CLASS ====================
+# Use the same complete program sample as the regression for comparability.
+# Show every observation, the median and interquartile range; no missing rows.
+comparison <- sample %>%
+  dplyr::mutate(
+    stability = factor(
+      ifelse(volatile == 0, "Estables", "Volátiles"),
+      levels = c("Estables", "Volátiles")
+    )
+  )
+class_summary <- comparison %>%
+  dplyr::group_by(stability) %>%
+  dplyr::summarise(
+    n = dplyr::n(),
+    median_payroll = stats::median(payroll_pct),
+    q25 = stats::quantile(payroll_pct, 0.25),
+    q75 = stats::quantile(payroll_pct, 0.75),
+    .groups = "drop"
+  )
+save_table(comparison, folder, "5_planilla")
+save_table(class_summary, folder, "9_resumen")
 
-selected$label <- short_labels(paste(selected$Ministerio, selected$Programa, sep = " · "), 66L)
-selected$label <- factor(
-  selected$label,
-  levels = rev(selected$label)
-)
-
-# Keep true zero percentages distinct from programs without a valid payroll link.
-selected$available <- is.finite(selected$payroll_pct) & selected$payroll_pct >= 0 & selected$payroll_pct <= 100
-p <- ggplot2::ggplot(selected, ggplot2::aes(payroll_pct, label)) +
-  ggplot2::geom_col(
-    data = selected[selected$available, ],
-    fill = "#176b87",
-    width = 0.7
-  ) +
-  ggplot2::geom_text(
-    data = selected[selected$available & selected$payroll_pct == 0, ],
-    ggplot2::aes(x = 2, label = "0%"),
-    hjust = 0,
-    color = "#176b87",
-    size = 3
+p <- ggplot2::ggplot(comparison, ggplot2::aes(stability, payroll_pct, fill = stability)) +
+  ggplot2::geom_boxplot(
+    width = 0.45,
+    alpha = 0.25,
+    outlier.shape = NA,
+    linewidth = 0.7
   ) +
   ggplot2::geom_point(
-    data = selected[!selected$available, ],
-    ggplot2::aes(x = 0),
-    shape = 4,
-    color = "#94a3b8",
+    ggplot2::aes(color = stability),
+    position = ggplot2::position_jitter(width = 0.13, height = 0, seed = 2026),
+    alpha = 0.6,
     size = 2
   ) +
   ggplot2::geom_text(
-    data = selected[!selected$available, ],
-    ggplot2::aes(x = 2, label = "N/D"),
-    hjust = 0,
-    color = "#64748b",
-    size = 3
+    data = class_summary,
+    ggplot2::aes(y = 107, label = sprintf("Mediana: %.1f%% · n = %d", median_payroll, n)),
+    size = 4,
+    fontface = "bold"
   ) +
-  ggplot2::facet_grid(Ministerio ~ ., scales = "free_y", space = "free_y") +
-  ggplot2::scale_x_continuous(
-    limits = c(0, 100),
-    breaks = seq(0, 100, 25)
+  ggplot2::scale_fill_manual(values = c("Estables" = "#176b87", "Volátiles" = "#c46b32")) +
+  ggplot2::scale_color_manual(values = c("Estables" = "#176b87", "Volátiles" = "#c46b32")) +
+  ggplot2::scale_y_continuous(
+    limits = c(0, 112),
+    breaks = seq(0, 100, 25),
+    labels = function(x) paste0(x, "%")
   ) +
+  ggplot2::guides(fill = "none", color = "none") +
   ggplot2::labs(
-    title = "Servicios personales por programa",
-    subtitle = paste(paste(config$payroll_ministries, collapse = " y "), "· nombres armonizados · gasto ponderado de años vinculados"),
-    x = "Servicios personales (% del devengado)",
-    y = NULL,
-    caption = "SICOIN. N/D = sin planilla vinculada o porcentaje no válido; no equivale a cero. Nombres completos en tablas."
+    title = "Planilla en programas estables y volátiles",
+    subtitle = sprintf("%d programas · cada punto representa un programa armonizado", nrow(comparison)),
+    x = NULL,
+    y = "Servicios personales (% del devengado)",
+    caption = sprintf(
+      "SICOIN. Estables: índice total < %s; volátiles: > %s. Cajas: mediana y 50%% central. Muestra completa del modelo; asociación descriptiva.",
+      config$volatility_threshold,
+      config$volatility_threshold
+    )
   )
-save_plot(
-  p,
-  folder,
-  "2_planilla",
-  width = 15,
-  height = max(9, 2.5 + nrow(selected) * 0.25)
-)
-save_table(
-  selected %>%
-    dplyr::select(-label),
-  folder,
-  "5_planilla"
-)
-save_table(
-  selected %>%
-    dplyr::select(Ministerio, Programa, label),
-  folder,
-  "9_diccionario"
-)
+save_plot(p, folder, "2_planilla", width = 10, height = 7, center_title = TRUE)
 
 # ======================== 3. LOGISTIC REGRESSION ============================
 # Binary outcome: full-series volatility above the master's threshold.
@@ -311,6 +296,69 @@ save_table(
 model_path <- file.path(config$output_dir, "2_tables", folder, "6_logit.rds")
 saveRDS(model, model_path)
 
+# ======================== 4. ADJUSTED PROBABILITY CURVE =====================
+# Marginal standardization: at each payroll share, predict every sample program
+# with its own observed longevity, name-change and department count, then average.
+# Use the delta method and the full coefficient covariance matrix for pointwise
+# 95% intervals on the logit of the average probability; these are not causal effects.
+payroll_grid <- seq(min(sample$payroll_pct), max(sample$payroll_pct), length.out = 201L)
+curve <- dplyr::bind_rows(lapply(payroll_grid, function(share) {
+  newdata <- sample
+  newdata$payroll_10pp <- share / 10
+  design <- stats::model.matrix(stats::delete.response(stats::terms(model)), newdata)
+  design <- design[, names(stats::coef(model)), drop = FALSE]
+  probabilities <- stats::plogis(drop(design %*% stats::coef(model)))
+  probability <- mean(probabilities)
+  gradient <- colMeans(design * (probabilities * (1 - probabilities)))
+  variance <- drop(t(gradient) %*% stats::vcov(model) %*% gradient)
+  se_logit <- sqrt(max(0, variance)) / (probability * (1 - probability))
+
+  data.frame(
+    payroll_pct = share,
+    probability = probability,
+    lower = stats::plogis(stats::qlogis(probability) - stats::qnorm(0.975) * se_logit),
+    upper = stats::plogis(stats::qlogis(probability) + stats::qnorm(0.975) * se_logit)
+  )
+}))
+stopifnot(all(is.finite(as.matrix(curve))))
+save_table(curve, folder, "11_probabilidad")
+
+p <- ggplot2::ggplot(curve, ggplot2::aes(payroll_pct, probability)) +
+  ggplot2::geom_ribbon(
+    ggplot2::aes(ymin = lower, ymax = upper),
+    fill = "#176b87",
+    alpha = 0.18
+  ) +
+  ggplot2::geom_line(color = "#176b87", linewidth = 1.2) +
+  ggplot2::geom_rug(
+    data = sample,
+    ggplot2::aes(x = payroll_pct),
+    inherit.aes = FALSE,
+    sides = "b",
+    alpha = 0.25
+  ) +
+  ggplot2::scale_x_continuous(
+    limits = c(0, 100),
+    breaks = seq(0, 100, 25),
+    labels = function(x) paste0(x, "%")
+  ) +
+  ggplot2::scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, 0.25),
+    labels = scales::label_percent(accuracy = 1)
+  ) +
+  ggplot2::labs(
+    title = "Planilla y probabilidad ajustada de volatilidad",
+    subtitle = sprintf("Regresión logística · %d programas · banda de confianza puntual del 95%%", nrow(sample)),
+    x = "Servicios personales (% del devengado)",
+    y = "Probabilidad de ser volátil",
+    caption = paste(
+      "SICOIN. Predicciones promediadas sobre la longevidad, cambios de nombre y departamentos observados.",
+      "Marcas inferiores: planilla observada. Asociación ajustada, no efecto causal."
+    )
+  )
+save_plot(p, folder, "3_probabilidad", width = 10, height = 7, center_title = TRUE)
+
 # Label predictors with their measurement units for the coefficient plot.
 labels <- c(
   payroll_10pp = "Servicios personales (+10 puntos porcentuales)",
@@ -354,12 +402,12 @@ p <- ggplot2::ggplot(effects, ggplot2::aes(odds_ratio, label)) +
 save_plot(
   p,
   folder,
-  "3_logit",
+  "4_logit",
   width = 13,
   height = 6
 )
 
-# Supersede the previous stage's pending status only once all three analyses exist.
+# Supersede the previous stage's pending status only once all analyses exist.
 pending <- file.path(config$output_dir, "2_tables", folder, "2_pendientes.csv")
 if (file.exists(pending)) {
   unlink(pending)

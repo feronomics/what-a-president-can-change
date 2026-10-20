@@ -118,6 +118,8 @@ diagnostics <- program_results %>%
     first_month = min(date),
     last_month = max(date),
     observations = dplyr::n(),
+    valid_log_observations = sum(log_valid),
+    invalid_log_observations = sum(!log_valid),
     index_total = dplyr::first(index_total),
     flag = dplyr::first(flag),
     .groups = "drop"
@@ -133,10 +135,12 @@ sources <- raw %>%
 
 # Record the model settings beside the exported results.
 metadata <- data.frame(
-  setting = c("program_column", "min_obs", "rolling_window", "model", "transformation"),
+  setting = c("program_column", "min_obs", "rolling_window", "model", "transformation", "invalid_log_policy", "minimum_valid_observations", "rolling_missing_policy"),
   value = c(
     config$program_column, config$min_obs, config$rolling_window,
-    "SARIMA(1,1,0)(1,1,0)[12]", "log1p(Ejecutado)"
+    "SARIMA(1,1,0)(1,1,0)[12]", "log1p(Ejecutado)",
+    "execution <= -1 becomes missing in log series; retain raw amount and calendar",
+    config$min_obs, "12 calendar months; SD of available residuals (at least 2); export coverage count"
   )
 )
 

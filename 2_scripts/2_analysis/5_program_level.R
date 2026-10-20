@@ -29,11 +29,11 @@ for (i in seq_along(ministries)) {
     dplyr::select(Ministerio, Programa, index_total, flag)
   dictionary$label <- short_labels(dictionary$Programa, 56L)
 
-  # Full 2004–2025 calendar and all programs; grey cells mean no valid index,
+  # Display 2005–2025 and all programs; grey cells mean no valid index,
   # including skipped fits, pre/post-active-life years and rolling warm-up.
   grid <- tidyr::expand_grid(
     Programa = dictionary$Programa,
-    year = 2004:2025
+    year = 2005:2025
   ) %>%
     dplyr::left_join(
       analysis$program_year %>%
@@ -67,7 +67,7 @@ for (i in seq_along(ministries)) {
       guide = ggplot2::guide_colorbar(barwidth = grid::unit(14, "cm"), barheight = grid::unit(0.4, "cm"))
     ) +
     ggplot2::scale_x_continuous(
-      breaks = seq(2004, 2025, 3),
+      breaks = seq(2005, 2025, 5),
       expand = c(0, 0)
     ) +
     ggplot2::labs(
@@ -99,7 +99,8 @@ for (i in seq_along(ministries)) {
 }
 
 save_table(
-  analysis$program_year,
+  analysis$program_year %>%
+    dplyr::filter(year >= 2005),
   folder,
   "0_indices"
 )
