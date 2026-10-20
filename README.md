@@ -11,9 +11,11 @@
 
 ## Data provenance
 
-The immediate inputs are the 16 cleaned `SICOIN_*_FINAL.xlsx` workbooks supplied in `1_databases/by ministry`, using their `SICOIN` worksheet. Their filenames identify the 2004–2025 release. SICOIN refers to Guatemala's Sistema de Contabilidad Integrada, documented by the Ministerio de Finanzas Públicas in its [official SICOIN manual](https://sicoindes.minfin.gob.gt/sicoinweb/downloads/manualSICOIN3.pdf). These workbooks are local cleaned extracts rather than a direct connection to SICOIN.
+The immediate inputs are the 16 cleaned `SICOIN_*_FINAL.xlsx` workbooks supplied in `1_databases/programs/by ministry`, using their `SICOIN` worksheet. Their filenames identify the 2004–2025 release. SICOIN refers to Guatemala's Sistema de Contabilidad Integrada, documented by the Ministerio de Finanzas Públicas in its [official SICOIN manual](https://sicoindes.minfin.gob.gt/sicoinweb/downloads/manualSICOIN3.pdf). These workbooks are local cleaned extracts rather than a direct connection to SICOIN.
 
 The supplied script describes them as final V4 databases and identifies `Programa_Final` as the harmonized program label. The project does not contain an extraction URL, download date, original query, cleaning code, or a complete crosswalk of program-name changes. Those details should be added by the data producers; the new pipeline does not reconstruct or certify them. Source workbooks are retained unchanged.
+
+The single master, `0_master.R`, runs two preprocessing stages: monthly program data and annual payroll data. The program stage reads `programs/by ministry` and writes `programs/unified/SICOIN_consolidated.xlsx`. The payroll stage reads `payroll/by ministry` and writes `payroll/unified/payroll_consolidated.xlsx`. All paths remain relative to `project` and are configured once in `0_master.R`.
 
 ## Data contents
 
@@ -58,13 +60,19 @@ Two safeguards are explicit in this version: a month with no available program i
 What is a president able to change/
 ├── README.md
 ├── 1_databases/
-│   ├── by ministry/                 # 16 unchanged source workbooks
-│   └── unified/
-│       └── SICOIN_consolidated.xlsx # One appended database
+│   ├── programs/
+│   │   ├── by ministry/             # 16 program source workbooks
+│   │   └── unified/
+│   │       └── SICOIN_consolidated.xlsx
+│   └── payroll/
+│       ├── by ministry/             # 14 annual spending files + Secretariat roster file
+│       └── unified/
+│           └── payroll_consolidated.xlsx
 ├── 2_scripts/
 │   ├── 0_master.R
 │   ├── 1_preprocessing/
-│   │   └── 1_append_databases.R
+│   │   ├── 1_append_databases.R
+│   │   └── 2_append_payroll.R
 │   ├── 2_analysis/
 │   │   ├── 1_volatility_index.R
 │   │   ├── 2_state_level.R
@@ -72,7 +80,8 @@ What is a president able to change/
 │   │   ├── 4_determinants.R
 │   │   └── 5_program_level.R
 │   └── 99_helpers/
-│       └── 99_helpers.R
+│       ├── 99_helpers.R
+│       └── 99_payroll_helpers.R
 ├── 3_output/
 │   ├── 1_volatility-index/
 │   │   └── volatility_index.xlsx   # One consolidated results workbook
@@ -84,7 +93,7 @@ What is a president able to change/
 │   └── 3_graphs/                   # One PNG per analysis or ministry
 │       ├── 2_state/
 │       ├── 3_ministry/
-│       ├── 4_determinants/          # Empty until payroll data are added
+│       ├── 4_determinants/          # 3 annual-payroll analysis plots
 │       └── 5_program/
 └── archive/
     └── volatility_all_ministries_FIXED.R.txt # Original script for reference
@@ -98,7 +107,7 @@ What is a president able to change/
 
 1. Run `Sys.info()[["user"]]` in R to see your exact username.
 2. Replace `"coauthor"` in the `else if` condition with that username.
-3. Replace the placeholder `pilot` path with the full path to your local project folder, containing `1_databases` and `2_scripts`. Use forward slashes even on Windows.
+3. Replace the placeholder `project` path with the full path to your local project folder, containing `1_databases` and `2_scripts`. Use forward slashes even on Windows.
 4. Additional collaborators should add an `else if` branch with their own username and project path in the same master script.
 
 The configuration follows this structure (the master already contains Fernando's actual project path):
@@ -107,14 +116,14 @@ The configuration follows this structure (the master already contains Fernando's
 username <- Sys.info()[["user"]]
 
 if (username == "fsaen") {
-  pilot <- "C:/Users/fsaen/ROUTE/TO/PROJECT"
+  project <- "C:/Users/fsaen/ROUTE/TO/PROJECT"
 } else if (username == "coauthor") {
   # COAUTHOR: replace both the username above and the path below.
-  pilot <- "C:/Users/coauthor/ROUTE/TO/PROJECT/"
+  project <- "C:/Users/coauthor/ROUTE/TO/PROJECT/"
 }
 ```
 
-The master automatically selects the matching branch and calls `setwd(pilot)`. **All script, input, and output paths thereafter are relative to that project folder.** Do not add personal paths to preprocessing, analysis, or helpers. An unconfigured username or nonexistent project folder stops execution with instructions to update the master. After running, R's working directory remains at the project root.
+The master automatically selects the matching branch and calls `setwd(project)`. **All script, input, and output paths thereafter are relative to that project folder.** Do not add personal paths to preprocessing, analysis, or helpers. An unconfigured username or nonexistent project folder stops execution with instructions to update the master. After running, R's working directory remains at the project root.
 
 Use R with `dplyr`, `tidyr`, `zoo`, `readxl`, `writexl`, `ggplot2`, and `scales` installed. If they are already installed, simply run this from the project root:
 
@@ -130,7 +139,11 @@ Rscript --vanilla 2_scripts/0_master.R
 
 You can also open and run `0_master.R` in your R editor, or invoke it by its full path from another working directory. The username configuration determines the project folder in every case. The master checks your normally installed dependencies, loads helpers, writes the unified workbook, and then reads that saved workbook for the analysis. It does not install packages automatically. All analyses use `Programa_Final`; do not change the program column to original labels. Set `min_obs`, `rolling_window`, and `volatility_threshold` in `0_master.R` to change the other analysis settings. The stage scripts expect the configuration/helpers supplied by the master.
 
-Each run overwrites the two generated workbooks; preserve a copy elsewhere if retaining a previous run is necessary. A validation failure stops execution, so an existing output workbook may belong to an earlier successful run.
+One master runs everything: `0_master.R` loads both helper scripts, appends programs, appends annual payroll, then runs analysis scripts 1–5 in numerical order, including the updated `4_determinants.R`. There is no second entry point or pipeline-mode option. Payroll stays annual; it is never expanded into monthly observations. The master can be invoked by full path from another working directory.
+
+Scripts use the `%>%` pipe, loaded through `dplyr` in the master. Functions document their purpose, inputs and returned results; comments and blank lines separate validation, transformation, modeling and export steps. Substantial calls and plot layers are written across separate lines for readability.
+
+Each run overwrites the generated outputs; preserve a copy elsewhere if retaining a previous run is necessary. A validation failure stops execution, so an existing output workbook may belong to an earlier successful run. No additional packages or local package library are required for the payroll stages.
 
 ## Results workbook
 
@@ -147,7 +160,7 @@ Missing numeric results appear as blank Excel cells. Review `diagnostics` before
 
 ## Additional analyses and plots
 
-The master runs analysis scripts in numerical order: `1_volatility_index.R`, `2_state_level.R`, `3_ministry_level.R`, `4_determinants.R`, and `5_program_level.R`. The preprocessing script retains its own stage number, `1_append_databases.R`. All use the same consolidated data and shared functions in `99_helpers.R`.
+The single master runs `1_append_databases.R` and `2_append_payroll.R`, then `1_volatility_index.R`, `2_state_level.R`, `3_ministry_level.R`, `4_determinants.R`, and `5_program_level.R`. Shared utilities are in `99_helpers.R`; annual validation, linkage, and predictor construction are in `99_payroll_helpers.R`.
 
 Each requested bullet produces one PNG, except ministry spending/growth (two separate images) and the program-level request (one image per source group). Ministry comparisons use panels within a single image. Ministry panels use their own vertical scales so large outliers do not flatten the other series; the volatility figure retains a shared vertical scale. Read the axis values when comparing magnitudes across panels. Supporting data are saved as numbered UTF-8 CSVs in the corresponding `3_output/2_tables` folder. Original source data remain unchanged.
 
@@ -155,7 +168,7 @@ Each requested bullet produces one PNG, except ministry spending/growth (two sep
 | --- | --- |
 | `2_state_level.R` / `3_graphs/2_state` | `1_gasto`, `2_programas`, `3_volatilidad`, `4_duracion`, `5_presupuesto`, `6_estabilidad`, `7_gasto`, `8_top10` |
 | `3_ministry_level.R` / `3_graphs/3_ministry` | `1_gasto`, `2_crecimiento`, `3_programas`, `4_volatilidad`, `5_duracion`, `6_presupuesto` |
-| `4_determinants.R` / `3_graphs/4_determinants` | No plots: all three requested analyses require personnel expenditure, which is not available yet |
+| `4_determinants.R` / `3_graphs/4_determinants` | `1_correlacion`, `2_planilla`, `3_logit` |
 | `5_program_level.R` / `3_graphs/5_program` | 16 numbered heatmaps, named by source group, such as `10_mineduc` and `13_mingob` |
 
 Definitions used in these analyses:
@@ -170,7 +183,29 @@ Definitions used in these analyses:
 - **Top ten:** the ten smallest valid `index_total` values, regardless of whether they fall below 0.5. This is a relative ranking, not an assertion that these programs pass the threshold.
 - **Program heatmaps:** one row per final program and one column per year, showing average available monthly rolling volatility. All programs are listed; unavailable values are grey. Color uses a common pseudologarithmic scale across ministries so differences remain visible despite large outliers. Long labels are abbreviated and made unique; full names and fit status are in the corresponding CSV dictionary.
 
-Per the project author's instruction, all analyses requiring personnel/payroll spending are omitted until that database is added: the payroll-volatility correlation, payroll share by program in stable ministries, and the specified logistic regression. No substitute regression is estimated. `4_determinants.R` currently exports available covariates and a pending-analysis list. The future dependent variable is prepared as `index_total > 0.5` versus `<0.5`, leaving missing/exactly-equal cases unclassified. Available predictors include observed duration and the count of named departments with positive execution. Original-name counts and name-change proxies are excluded: only harmonized program names are used. Multiregional, exterior, and debt labels are flagged and are not counted as additional departments; named-department coverage is a lower bound when those labels occur.
+## Annual payroll data and determinants
+
+**Frequency confirmed by inspection of every worksheet:** the 14 `*_gasto_por_grupo.xlsx` workbooks have `Anio` and no month/date field. They contain annual spending, not monthly payroll. Coverage is 2004–2025, except MIDES (2012–2025). The workbook `secretarias_por_ano.xlsx` contains annual Secretariat counts, rosters, and changes, **not expenditure**; it is preserved as auxiliary sheets and is excluded from payroll percentages. There is no payroll spending workbook for Secretariats or public debt.
+
+Each spending workbook contains `detalle` (year, entity, program code/name, expenditure type/group, assigned/current budget, and `Devengado`) and `resumen_planilla` (annual program spending, personnel spending, and supplied percentages). Preprocessing appends all detail rows with source/ministry provenance, preserves the supplied summaries separately, and recalculates annual totals from detail. **Servicios personales** is spending group `000`, checked against its label. Payroll share is `100 * personnel Devengado / total Devengado`, with nonpositive denominators left missing. Group codes remain character strings. These data measure personnel expenditure, not employee headcounts.
+
+The consolidated workbook contains `detalle`, `anual`, `resumen_origen`, `fuentes`, `conciliacion`, and three `secretarias_*` auxiliary sheets. Detail totals are reconciled to the supplied annual summaries, allowing small rounding differences; the precise detail amounts are retained. All three source Secretariat sheets are preserved without pretending their counts are monetary spending.
+
+**Linkage:** annual payroll program labels are matched within ministry/year to the existing original/standardized/final-name crosswalk in the monthly database. Formatting normalization removes case, accent, and punctuation differences; a match must identify exactly one `Programa_Final`. A cross-year alias is accepted only when it is unique across the full crosswalk and there is no year-specific match. No fuzzy matches or shared program-code assumptions are used. Original labels serve only as linkage evidence; every analysis still has harmonized ministry-program identities. Broad headings such as “GASTOS DE FUNCIONAMIENTO” are retained as unmatched instead of being allocated to several programs. `2_enlaces.csv` and `3_cobertura.csv` expose unmatched rows and their expenditure coverage. Absence of a match is not treated as zero personnel spending.
+
+`4_determinants.R` implements the three requested bullets, with one plot each:
+
+1. **Correlation:** a scatterplot of the program's personnel-spending share and `index_total`, with Pearson and Spearman coefficients. One observation is one linked harmonized ministry-program. Its personnel share is calculated from the sums of payroll and total expenditure across available linked years, not an unweighted average of percentages. The volatility index remains the program's full active-history index; the available payroll years are explicit in the covariate table, so the two time windows can differ.
+2. **Personnel share by program:** a single figure listing all harmonized programs in **MINEDUC and MINGOB**, the examples requested, with abbreviated labels and a full-name dictionary. These are configurable in `payroll_ministries` in the master; the code does not assert they are the two most stable ministries. Unmatched programs are marked N/D. True zero personnel shares are retained as zero.
+3. **Logistic regression:** `volatile ~ payroll_10pp + longevity_years + name_change + department_count`, estimated with binomial maximum likelihood. The outcome is 1 for `index_total > 0.5` and 0 for `<0.5`; equality and missing indices are excluded. `payroll_10pp` measures increases of 10 percentage points; longevity is the inclusive observed active span in years. The odds-ratio plot shows Wald 95% intervals. Model coefficients, exclusions, settings, warnings, and the fitted R model are saved. The script checks class variation, design rank, convergence, and finite estimates/intervals.
+
+To implement the requested name-change predictor, `name_change` indicates whether the **set of normalized source aliases changes across active years within one harmonized program**. This is a documented proxy for an observed label change, not proof of a formal administrative renaming. It does not create separate program identities or bring back original-name histograms. Its year-by-year evidence is saved in `10_renombres.csv`.
+
+Department count is the number of named Guatemalan departments with positive execution across the harmonized program's history. Multiregional, exterior, and debt labels are flagged and are not counted as additional departments; named coverage is a lower bound where these labels occur. The model uses this observed count without allocating multiregional spending to invented departments.
+
+The main model and correlations use complete programs with valid indices and linked, valid payroll shares. They are descriptive associations, not causal estimates. Personnel amounts cover linked years only; unavailable early disaggregation and missing institutions can affect sample composition. Standard model errors/intervals assume independent program observations; they are not clustered by ministry. Program life spans are truncated by the observed 2004–2025 window.
+
+Supporting CSVs in `3_output/2_tables/4_determinants` include `1_covariables`, `2_enlaces`, `3_cobertura`, `4_correlacion`, `5_planilla`, `6_logit`, `7_modelo`, `8_exclusiones`, `9_diccionario`, and `10_renombres`. `6_logit.rds` stores the fitted model. The previous `2_pendientes.csv` is removed after the three analyses succeed.
 
 ## Validation of the supplied release
 
@@ -179,3 +214,7 @@ The complete pipeline was run successfully. The unified workbook contains **307,
 Verification checked saved workbook dimensions, recomputed ministry weights from saved program results, compared the helper's residuals with a direct SARIMA fit, and checked short/constant series, active-life trimming, and missing/zero-execution aggregate behavior.
 
 The additional analyses generated **30 PNGs** (8 state, 6 ministry comparisons, 16 program heatmaps). Validation reconciled annual execution to the consolidated rows, checked December budget totals, active program counts, durations using harmonized program names, percentage denominators, and available covariates. Ministry-year tables follow each source group's actual coverage rather than inventing observations before its first recorded year. The classification threshold for all analyses is 0.5, configured once in `0_master.R`; plot labels are generated from that setting. Fitted programs account for 82.24% of supplied execution and the remaining 17.76% belongs to programs without an index.
+
+The payroll analysis adds **3 PNGs**, for **33 plots from the single master pipeline**. Its consolidated workbook contains **11,967 detail rows** and **1,354 annual source program records** from **14 ministries**. **1,047 records link unambiguously** to **162 harmonized programs**, covering **55.27% of payroll-source spending**; 307 source records remain unmatched. The complete-case correlation/regression sample contains **111 programs** (52 stable and 59 volatile). Among all 318 program identities, 85 have valid volatility but no linked payroll and 122 have no valid volatility index. These are sample exclusions, not zero payroll amounts.
+
+Payroll validation compared every detail row with its source, recomputed annual totals and personnel shares, checked Secretariat exclusion, tested that ambiguous aliases stay unmatched, and reproduced the saved regression coefficients and correlations from exported covariates. The logistic model converged with all four requested predictors. Images were visually checked for legibility and missing-data labels.
