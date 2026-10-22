@@ -6,7 +6,7 @@
 ## Inputs:              Consolidated monthly SICOIN data; Programa_Final identities.
 ## Outputs:             3_output/{2_tables,3_graphs}/7_priorities.
 ## Execution:           Single 2_scripts/0_master.R; all paths relative to project.
-## Method:              Nominal spending increases/cuts; fixed baseline denominator; excludes debt.
+## Method:              Nominal spending increases/cuts; fixed baseline denominator; configured debt scope.
 ## Limits:              First observed label is not verified creation; changes are not identified transfers.
 ## -------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ if (!exists("config") || !exists("save_plot")) {
 
 # Aggregate monthly execution flows and December budget stocks separately.
 raw <- readxl::read_xlsx(config$unified_file, sheet = "SICOIN") %>%
-  without_public_debt() %>%
+  analysis_scope() %>%
   mutate(year = as.integer(.data[["Año"]]), month = recode_month(Mes), Programa = Programa_Final)
 annual <- raw %>%
   group_by(Ministerio, Programa, year) %>%
@@ -178,7 +178,7 @@ p <- ggplot2::ggplot(summary_bars, ggplot2::aes(label, value, fill = type)) +
     caption = paste(
       "Azul: suma de los aumentos; naranja: suma de los recortes. Ambos se comparan con el mismo gasto inicial.",
       "Los aumentos pueden incluir crecimiento del gasto total: no se supone que fueron financiados por los recortes.",
-      "Montos originales, sin ajuste por inflación. Fuente: SICOIN, 15 grupos disponibles, sin servicio de la deuda pública."
+      paste("Montos originales, sin ajuste por inflación. Fuente: SICOIN.", scope_note())
     )
   )
 save_plot(p, folder, "1_resumen", width = 13, height = 8, center_title = TRUE)
@@ -228,7 +228,7 @@ for (i in seq_len(nrow(terms))) {
       subtitle = sprintf("%d → %d · debajo de cada programa: monto antes → monto después", terms$start[i] - 1L, terms$start[i] + 1L),
       x = "Aumento (+) o recorte (−) del gasto ejecutado, en millones de quetzales",
       y = NULL,
-      caption = "Cinco mayores aumentos y cinco mayores recortes. Montos originales, sin ajuste por inflación. Fuente: SICOIN, 15 grupos disponibles, sin servicio de la deuda pública. Todos los programas: 9_montos.csv."
+      caption = paste("Cinco mayores aumentos y cinco mayores recortes. Montos originales, sin ajuste por inflación. Fuente: SICOIN.", scope_note(), "Todos los programas: 9_montos.csv.")
     )
   slug <- c("colom", "perez", "morales", "giammattei", "arevalo")[i]
   save_plot(p, folder, paste0(i + 1L, "_", slug), width = 17, height = 10, center_title = TRUE)

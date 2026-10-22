@@ -69,6 +69,7 @@ config <- list(
   input_dir = file.path("1_databases", "programs", "by ministry"),
   unified_file = file.path("1_databases", "programs", "unified", "SICOIN_consolidated.xlsx"),
   output_dir = "3_output",
+  include_public_debt = FALSE,
 
   # Harmonized names ONLY for every analysis.
   program_column = "Programa_Final",
@@ -106,7 +107,8 @@ for (script in c("1_append_databases.R", "2_append_payroll.R")) {
 # Volatility is computed first, so later descriptive/payroll analyses can use it.
 for (script in c(
   "1_volatility_index.R", "2_state_level.R", "3_ministry_level.R",
-  "4_determinants.R", "5_program_level.R", "6_structural_break.R", "7_budget_composition.R"
+  "4_determinants.R", "5_program_level.R", "6_structural_break.R", "7_budget_composition.R",
+  "8_debt_sensitivity.R"
 )) {
   source(
     file.path("2_scripts", "2_analysis", script),

@@ -15,7 +15,10 @@ if (!exists("config") || !exists("test_fixed_break")) {
   stop("Run 2_scripts/0_master.R first.")
 }
 folder <- "6_breaks"
-volatility_file <- file.path(config$output_dir, "1_volatility-index", "volatility_index.xlsx")
+volatility_file <- config$volatility_file
+if (is.null(volatility_file)) {
+  volatility_file <- file.path(config$output_dir, "1_volatility-index", "volatility_index.xlsx")
+}
 
 # ======================== RECONSTRUCT BOTH AGGREGATIONS ====================
 # Reuse fitted results; do not re-estimate models or change the production index.
@@ -25,9 +28,9 @@ break_ministries <- readxl::read_xlsx(volatility_file, sheet = "ministry_index_l
 break_ministries$date <- as.Date(break_ministries$date)
 break_raw <- readxl::read_xlsx(config$unified_file, sheet = "SICOIN")
 # Exclude debt before pooling and before constructing annual ministry weights.
-break_programs <- without_public_debt(break_programs)
-break_ministries <- without_public_debt(break_ministries)
-break_raw <- without_public_debt(break_raw)
+break_programs <- analysis_scope(break_programs)
+break_ministries <- analysis_scope(break_ministries)
+break_raw <- analysis_scope(break_raw)
 
 # Current definition: pool fitted programs using their execution in each month.
 pooled <- break_programs
@@ -55,9 +58,9 @@ annual_series <- annual_series %>%
     .groups = "drop"
   )
 series <- dplyr::full_join(current, annual_series, by = "date") %>%
-  dplyr::filter(date >= as.Date("2005-01-01"), date <= as.Date("2025-12-01")) %>%
+  dplyr::filter(date >= as.Date("2006-01-01"), date <= as.Date("2025-12-01")) %>%
   dplyr::arrange(date)
-expected_dates <- seq(as.Date("2005-01-01"), as.Date("2025-12-01"), by = "month")
+expected_dates <- seq(as.Date("2006-01-01"), as.Date("2025-12-01"), by = "month")
 stopifnot(identical(series$date, expected_dates))
 stopifnot(all(is.finite(series$current)), all(is.finite(series$annual_ministry)))
 save_table(series, folder, "1_series")
@@ -112,7 +115,7 @@ segments <- means %>%
   dplyr::select(definition, pre_mean, post_mean) %>%
   tidyr::pivot_longer(c(pre_mean, post_mean), names_to = "period", values_to = "mean") %>%
   dplyr::mutate(
-    start = as.Date(ifelse(period == "pre_mean", "2005-01-01", "2016-01-01")),
+    start = as.Date(ifelse(period == "pre_mean", "2006-01-01", "2016-01-01")),
     end = as.Date(ifelse(period == "pre_mean", "2015-12-01", "2025-12-01")),
     panel = factor(panel_names[definition], levels = panel_names)
   )
@@ -132,7 +135,7 @@ p <- ggplot2::ggplot(long, ggplot2::aes(date, value)) +
   ) +
   ggplot2::facet_wrap(~panel, ncol = 1, scales = "fixed") +
   ggplot2::scale_x_date(
-    breaks = as.Date(paste0(seq(2005, 2025, 5), "-01-01")),
+    breaks = as.Date(paste0(c(2006, 2010, 2015, 2020, 2025), "-01-01")),
     date_labels = "%Y"
   ) +
   ggplot2::labs(
@@ -140,7 +143,7 @@ p <- ggplot2::ggplot(long, ggplot2::aes(date, value)) +
     subtitle = "Gris: índice mensual · azul: medias antes y después de enero de 2016",
     x = NULL,
     y = "Índice de volatilidad",
-    caption = "Sin servicio de la deuda pública. Ambos índices usan los mismos ajustes SARIMA; solo cambia la ponderación. Fecha evaluada: enero de 2016."
+    caption = paste(scope_note(), "Se presenta 2006–2025 para comparar dos períodos de diez años (2006–2015 y 2016–2025) y reducir la posible influencia de la inicialización del modelo SARIMA y de la ventana móvil del índice en los primeros años.")
   )
 save_plot(p, folder, "1_comparacion", width = 13, height = 9, center_title = TRUE)
 
@@ -153,9 +156,9 @@ report <- c(
   "",
   "## Data and hypotheses",
   "",
-  "Scope: 15 observed source groups, excluding public-debt service before calculating indices, totals and weights. Monthly observations: January 2005–December 2025 (252 observations). The index measures the standard deviation of model residuals; this analysis tests changes in the LEVEL or TREND of that index, not the variance of its disturbances.",
+  paste(scope_note(), "The 2006–2025 window compares two equal ten-year periods (2006–2015 and 2016–2025) and reduces the possible influence of SARIMA initialization and the rolling index window in the earliest years. This potential initialization influence has not been established empirically. Models still use their complete active histories, not a separate 2004–2005 training sample. Monthly observations: January 2006–December 2025 (240 observations). The index measures the standard deviation of model residuals; this analysis tests changes in the LEVEL or TREND of that index, not the variance of its disturbances."),
   "",
-  "The January 2016 split is the nominated year boundary: 132 pre-break months and 120 post-break months. September 2016 is an additional date sensitivity. Dates were nominated after inspecting the data, so these are conditional tests, not confirmatory tests of an independently prespecified or unknown break.",
+  "The January 2016 split is the nominated year boundary: 120 pre-break months and 120 post-break months. September 2016 is an additional date sensitivity. Dates were nominated after inspecting the data, so these are conditional tests, not confirmatory tests of an independently prespecified or unknown break.",
   "",
   "Mean specification: restricted y ~ 1; unrestricted y ~ post. Trend specification: restricted y ~ time; unrestricted y ~ time * post, with time measured in years and zero in the first post-break month. Chow F compares restricted/unrestricted residual sums of squares. The trend test jointly tests a change in intercept and slope; significance does not alone imply a fall in the mean.",
   "",
@@ -209,7 +212,7 @@ report <- c(report,
   "", "## Method references", "",
   "- [strucchange: Chow and structural-change tests](https://search.r-project.org/CRAN/refmans/strucchange/html/sctest.formula.html)",
   "- [sandwich: Newey–West HAC specification](https://sandwich.r-forge.r-project.org/reference/NeweyWest.html)",
-  "", "Reproduce by running 2_scripts/0_master.R. Numerical results are in 1_series.csv, 2_tests.csv and 3_means.csv; figure: 3_output/3_graphs/6_breaks/1_comparacion.png."
+  "", paste0("Reproduce by running 2_scripts/0_master.R. Numerical results are in 1_series.csv, 2_tests.csv and 3_means.csv; figure: ", file.path(config$output_dir, "3_graphs", folder, "1_comparacion.png"), ".")
 )
 writeLines(report, file.path(report_dir, "4_report.md"), useBytes = TRUE)
 print(means)

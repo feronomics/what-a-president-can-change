@@ -20,8 +20,8 @@ if (!exists("analysis")) {
 folder <- "5_program"
 ministries <- sort(unique(analysis$classes$Ministerio))
 # Keep existing file numbers for the retained ministries; skip the debt output.
-program_classes <- without_public_debt(analysis$classes)
-program_year <- without_public_debt(analysis$program_year)
+program_classes <- analysis_scope(analysis$classes)
+program_year <- analysis_scope(analysis$program_year)
 for (i in seq_along(ministries)) {
   ministry <- ministries[i]
   if (!ministry %in% program_classes$Ministerio) {
@@ -82,7 +82,7 @@ for (i in seq_along(ministries)) {
       x = NULL,
       y = NULL,
       fill = "Índice",
-      caption = "Fuente: SICOIN. Se excluye el servicio de la deuda pública. Gris = sin índice disponible. Nombres completos en la tabla de etiquetas."
+      caption = paste("Fuente: SICOIN.", scope_note(), "Gris = sin índice disponible. Nombres completos en la tabla de etiquetas.")
     ) +
     ggplot2::theme(axis.text.y = ggplot2::element_text(size = 9))
 
@@ -111,7 +111,7 @@ save_table(
   "0_indices"
 )
 # Remove the previously generated debt-only figure and its label dictionary.
-for (file in c(
+for (file in if (isTRUE(config$include_public_debt)) character() else c(
   file.path(config$output_dir, "3_graphs", folder, "1_deuda_publica.png"),
   file.path(config$output_dir, "2_tables", folder, "1_deuda_publica.csv")
 )) {

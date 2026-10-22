@@ -21,13 +21,13 @@ analysis <- prepare_analysis(raw, program_results, diagnostics, config)
 # Retain full ministry/program data for stages 3 and 5, while every state figure
 # uses the same non-debt scope and recomputes its own totals and denominators.
 state_analysis <- prepare_analysis(
-  without_public_debt(raw),
-  without_public_debt(program_results),
-  without_public_debt(diagnostics),
+  analysis_scope(raw),
+  analysis_scope(program_results),
+  analysis_scope(diagnostics),
   config
 )
 folder <- "2_state"
-caption <- "Fuente: SICOIN. Estado sin servicio de la deuda pública: 15 grupos disponibles."
+caption <- paste("Fuente: SICOIN.", scope_note())
 annual <- state_analysis$state_annual
 
 # 1. One image with two panels: nominal amount and annual growth rate.
@@ -74,7 +74,7 @@ save_table(
 # 3. Pool fitted programs across the state each month; average monthly state
 # indices within each year. This is not a new SARIMA on total state spending.
 state_volatility <- state_analysis$state_volatility %>%
-  dplyr::filter(year >= 2005)
+  dplyr::filter(year >= 2006)
 
 # Compare the displayed annual values, giving each available year equal weight.
 # Two non-overlapping ten-year windows; these are descriptive reference means,
@@ -95,12 +95,12 @@ save_table(period_means, folder, "9_promedios")
 
 # Test the monthly index directly, independently of the annual plot values.
 # Compute here on every run so the figure never reads stale stage-6 results.
-state_test_programs <- without_public_debt(program_results)
+state_test_programs <- analysis_scope(program_results)
 state_test_programs$Ministerio <- "Estado"
 state_test_data <- aggregate_ministry_index(state_test_programs) %>%
   dplyr::transmute(date, value = volatility_index) %>%
   dplyr::filter(
-    date >= as.Date("2005-01-01"),
+    date >= as.Date("2006-01-01"),
     date <= as.Date("2025-12-01"),
     is.finite(value)
   ) %>%
@@ -130,7 +130,7 @@ p <- ggplot2::ggplot(state_volatility, ggplot2::aes(year, volatility)) +
   ggplot2::geom_point(color = "#b45309") +
   ggplot2::annotate(
     "label",
-    x = 2005.3,
+    x = 2006.3,
     y = Inf,
     label = test_label,
     hjust = 0,
@@ -156,8 +156,8 @@ p <- ggplot2::ggplot(state_volatility, ggplot2::aes(year, volatility)) +
     name = NULL
   ) +
   ggplot2::scale_x_continuous(
-    limits = c(2005, 2025),
-    breaks = seq(2005, 2025, 5)
+    limits = c(2006, 2025),
+    breaks = c(2006, 2010, 2015, 2020, 2025)
   ) +
   ggplot2::labs(
     title = "Volatilidad del Estado",
@@ -167,7 +167,7 @@ p <- ggplot2::ggplot(state_volatility, ggplot2::aes(year, volatility)) +
     caption = paste(
       caption,
       sprintf("Pruebas sobre %d meses; HAC ajusta por autocorrelación. Cambio solo de nivel: HAC p = %.3f.", nrow(state_test_data), mean_hac$p_value),
-      "Medias anuales: dos períodos de diez años, sin solapamiento."
+      "Se presenta 2006–2025 para comparar dos períodos de diez años (2006–2015 y 2016–2025) y reducir la posible influencia de la inicialización del modelo SARIMA y de la ventana móvil del índice en los primeros años."
     )
   )
 save_plot(

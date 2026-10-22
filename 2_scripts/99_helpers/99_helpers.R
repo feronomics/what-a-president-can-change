@@ -659,3 +659,22 @@ spending_plot <- function(annual, by_ministry = FALSE) {
       ggplot2::facet_wrap(~measure, ncol = 2, scales = "free_y")
   }
 }
+
+# Select one debt scope consistently for all inputs to an analysis.
+# Stage 8 enables debt in its own environment; main results exclude it.
+analysis_scope <- function(data) {
+  if (isTRUE(config$include_public_debt)) {
+    return(data)
+  }
+
+  without_public_debt(data)
+}
+
+# Keep scope in chart notes; titles remain comparable across variants.
+scope_note <- function() {
+  if (isTRUE(config$include_public_debt)) {
+    return("Incluye el servicio de la deuda pública: 16 grupos disponibles.")
+  }
+
+  "Se excluye el servicio de la deuda pública: 15 grupos disponibles."
+}
