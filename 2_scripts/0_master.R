@@ -5,7 +5,7 @@
 ## Affiliation:         Asociación de Investigación y Estudios Sociales (ASIES)
 ## Title:               Master pipeline
 ## Purpose:             Single master: preprocess programs/payroll, then run analyses 1–7.
-## Inputs / outputs:    Monthly programs and annual payroll -> consolidated data, 41 plots, tables.
+## Inputs / outputs:    Monthly programs and annual payroll -> consolidated data, 40 plots, tables.
 ## Execution:           Run 2_scripts/0_master.R from R or Rscript.
 ## Method provenance:   Refactored from volatility_all_ministries_FIXED.R.
 ## -------------------------------------------------------------------------

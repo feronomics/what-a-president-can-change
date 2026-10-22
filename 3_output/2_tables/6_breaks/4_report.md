@@ -2,7 +2,7 @@
 
 ## Data and hypotheses
 
-Monthly observations: January 2005–December 2025 (252 observations). The index measures the standard deviation of model residuals; this analysis tests changes in the LEVEL or TREND of that index, not the variance of its disturbances.
+Scope: 15 observed source groups, excluding public-debt service before calculating indices, totals and weights. Monthly observations: January 2005–December 2025 (252 observations). The index measures the standard deviation of model residuals; this analysis tests changes in the LEVEL or TREND of that index, not the variance of its disturbances.
 
 The January 2016 split is the nominated year boundary: 132 pre-break months and 120 post-break months. September 2016 is an additional date sensitivity. Dates were nominated after inspecting the data, so these are conditional tests, not confirmatory tests of an independently prespecified or unknown break.
 
@@ -14,39 +14,39 @@ Classical Chow assumes independent, homoskedastic disturbances. Twelve-month rol
 
 | Definition | First post month | Pre mean | Post mean | Change | Change (%) |
 |---|---|---:|---:|---:|---:|
-| current | 2016-01-01 | 0.773176 | 0.706641 | -0.066535 | -8.61% |
-| current | 2016-09-01 | 0.782260 | 0.690533 | -0.091726 | -11.73% |
-| annual_ministry | 2016-01-01 | 0.790784 | 0.670489 | -0.120296 | -15.21% |
-| annual_ministry | 2016-09-01 | 0.800335 | 0.649957 | -0.150378 | -18.79% |
+| current | 2016-01-01 | 0.916198 | 0.764116 | -0.152082 | -16.60% |
+| current | 2016-09-01 | 0.922528 | 0.745340 | -0.177188 | -19.21% |
+| annual_ministry | 2016-01-01 | 0.934587 | 0.717689 | -0.216898 | -23.21% |
+| annual_ministry | 2016-09-01 | 0.940859 | 0.694356 | -0.246504 | -26.20% |
 
 ## Tests
 
 | Definition | Split | Specification | Test | Statistic | df | p-value |
 |---|---|---|---|---:|---|---:|
-| current | 2016-01-01 | mean | Chow F (iid errors) | 3.4872 | 1, 250 | 0.063017 |
-| current | 2016-01-01 | mean | HAC Wald chi-square (lag 12) | 0.8846 | 1 | 0.34694 |
-| current | 2016-01-01 | mean | HAC Wald chi-square (lag 24) | 0.7796 | 1 | 0.37727 |
-| current | 2016-01-01 | trend | Chow F (iid errors) | 13.9613 | 2, 248 | 1.7963e-06 |
-| current | 2016-01-01 | trend | HAC Wald chi-square (lag 12) | 10.5089 | 2 | 0.0052241 |
-| current | 2016-01-01 | trend | HAC Wald chi-square (lag 24) | 9.0690 | 2 | 0.010732 |
-| current | 2016-09-01 | mean | Chow F (iid errors) | 6.6423 | 1, 250 | 0.010532 |
-| current | 2016-09-01 | mean | HAC Wald chi-square (lag 12) | 1.6749 | 1 | 0.1956 |
-| current | 2016-09-01 | mean | HAC Wald chi-square (lag 24) | 1.4523 | 1 | 0.22815 |
-| current | 2016-09-01 | trend | Chow F (iid errors) | 14.6584 | 2, 248 | 9.615e-07 |
-| current | 2016-09-01 | trend | HAC Wald chi-square (lag 12) | 10.9474 | 2 | 0.0041957 |
-| current | 2016-09-01 | trend | HAC Wald chi-square (lag 24) | 9.3377 | 2 | 0.009383 |
-| annual_ministry | 2016-01-01 | mean | Chow F (iid errors) | 18.0486 | 1, 250 | 3.0407e-05 |
-| annual_ministry | 2016-01-01 | mean | HAC Wald chi-square (lag 12) | 3.6192 | 1 | 0.057117 |
-| annual_ministry | 2016-01-01 | mean | HAC Wald chi-square (lag 24) | 2.9803 | 1 | 0.084281 |
-| annual_ministry | 2016-01-01 | trend | Chow F (iid errors) | 28.2730 | 2, 248 | 8.6903e-12 |
-| annual_ministry | 2016-01-01 | trend | HAC Wald chi-square (lag 12) | 11.8551 | 2 | 0.002665 |
-| annual_ministry | 2016-01-01 | trend | HAC Wald chi-square (lag 24) | 10.4241 | 2 | 0.0054505 |
-| annual_ministry | 2016-09-01 | mean | Chow F (iid errors) | 29.0667 | 1, 250 | 1.6179e-07 |
-| annual_ministry | 2016-09-01 | mean | HAC Wald chi-square (lag 12) | 6.1285 | 1 | 0.013302 |
-| annual_ministry | 2016-09-01 | mean | HAC Wald chi-square (lag 24) | 4.9145 | 1 | 0.026633 |
-| annual_ministry | 2016-09-01 | trend | Chow F (iid errors) | 31.9686 | 2, 248 | 4.4429e-13 |
-| annual_ministry | 2016-09-01 | trend | HAC Wald chi-square (lag 12) | 13.6175 | 2 | 0.0011041 |
-| annual_ministry | 2016-09-01 | trend | HAC Wald chi-square (lag 24) | 11.5185 | 2 | 0.0031535 |
+| current | 2016-01-01 | mean | Chow F (iid errors) | 12.4842 | 1, 250 | 0.00048872 |
+| current | 2016-01-01 | mean | HAC Wald chi-square (lag 12) | 3.3372 | 1 | 0.06773 |
+| current | 2016-01-01 | mean | HAC Wald chi-square (lag 24) | 2.9286 | 1 | 0.08702 |
+| current | 2016-01-01 | trend | Chow F (iid errors) | 19.4761 | 2, 248 | 1.3919e-08 |
+| current | 2016-01-01 | trend | HAC Wald chi-square (lag 12) | 14.9920 | 2 | 0.00055531 |
+| current | 2016-01-01 | trend | HAC Wald chi-square (lag 24) | 13.1080 | 2 | 0.0014244 |
+| current | 2016-09-01 | mean | Chow F (iid errors) | 17.0681 | 1, 250 | 4.9221e-05 |
+| current | 2016-09-01 | mean | HAC Wald chi-square (lag 12) | 4.6585 | 1 | 0.030901 |
+| current | 2016-09-01 | mean | HAC Wald chi-square (lag 24) | 4.1137 | 1 | 0.042537 |
+| current | 2016-09-01 | trend | Chow F (iid errors) | 19.6645 | 2, 248 | 1.1829e-08 |
+| current | 2016-09-01 | trend | HAC Wald chi-square (lag 12) | 15.2073 | 2 | 0.00049864 |
+| current | 2016-09-01 | trend | HAC Wald chi-square (lag 24) | 12.9881 | 2 | 0.0015124 |
+| annual_ministry | 2016-01-01 | mean | Chow F (iid errors) | 39.8149 | 1, 250 | 1.2611e-09 |
+| annual_ministry | 2016-01-01 | mean | HAC Wald chi-square (lag 12) | 8.5603 | 1 | 0.0034357 |
+| annual_ministry | 2016-01-01 | mean | HAC Wald chi-square (lag 24) | 6.8572 | 1 | 0.0088286 |
+| annual_ministry | 2016-01-01 | trend | Chow F (iid errors) | 39.6595 | 2, 248 | 1.1365e-15 |
+| annual_ministry | 2016-01-01 | trend | HAC Wald chi-square (lag 12) | 17.4476 | 2 | 0.00016267 |
+| annual_ministry | 2016-01-01 | trend | HAC Wald chi-square (lag 24) | 15.0225 | 2 | 0.00054691 |
+| annual_ministry | 2016-09-01 | mean | Chow F (iid errors) | 53.2695 | 1, 250 | 3.8581e-12 |
+| annual_ministry | 2016-09-01 | mean | HAC Wald chi-square (lag 12) | 12.5230 | 1 | 0.00040198 |
+| annual_ministry | 2016-09-01 | mean | HAC Wald chi-square (lag 24) | 10.0038 | 1 | 0.0015622 |
+| annual_ministry | 2016-09-01 | trend | Chow F (iid errors) | 41.9001 | 2, 248 | 2.1052e-16 |
+| annual_ministry | 2016-09-01 | trend | HAC Wald chi-square (lag 12) | 18.4668 | 2 | 9.7721e-05 |
+| annual_ministry | 2016-09-01 | trend | HAC Wald chi-square (lag 24) | 15.3376 | 2 | 0.00046718 |
 
 ## Weighting definitions
 
@@ -54,13 +54,13 @@ current: monthly execution-weighted program indices pooled across ministries. an
 
 ## Interpretation
 
-current: the post-2016 average is lower by 8.61%. The lag-12 HAC level-change test has p = 0.34694; do not reject equal levels at the conventional 5% threshold, conditional on this date and specification.
+current: the post-2016 average is lower by 16.60%. The lag-12 HAC level-change test has p = 0.06773; do not reject equal levels at the conventional 5% threshold, conditional on this date and specification.
 
-The joint level-and-trend HAC test for current has p = 0.0052241. This is a joint test of intercept and slope changes, not a test that the full post-period mean is lower.
+The joint level-and-trend HAC test for current has p = 0.00055531. This is a joint test of intercept and slope changes, not a test that the full post-period mean is lower.
 
-annual_ministry: the post-2016 average is lower by 15.21%. The lag-12 HAC level-change test has p = 0.057117; do not reject equal levels at the conventional 5% threshold, conditional on this date and specification.
+annual_ministry: the post-2016 average is lower by 23.21%. The lag-12 HAC level-change test has p = 0.0034357; reject equal levels at the conventional 5% threshold, conditional on this date and specification.
 
-The joint level-and-trend HAC test for annual_ministry has p = 0.002665. This is a joint test of intercept and slope changes, not a test that the full post-period mean is lower.
+The joint level-and-trend HAC test for annual_ministry has p = 0.00016267. This is a joint test of intercept and slope changes, not a test that the full post-period mean is lower.
 
 Do not switch aggregation definitions solely to obtain a desired decline. Keep the production definition explicit, report the alternative as sensitivity, and distinguish a local 2016 drop from a persistent full-period average shift. A global unknown-break procedure would need search-adjusted inference with serial-dependence treatment.
 

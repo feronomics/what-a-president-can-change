@@ -8,6 +8,9 @@ The summary does not assume increases are financed by reductions. Spending can g
 
 One additional figure per president identifies the five largest monetary increases and five largest monetary reductions. Each row shows its amount in the baseline and comparison year; bars show the difference, all in millions of quetzales. Use the summary for cross-government size comparisons and the individual figures for program detail.
 
-1_resumen.csv contains aggregate amounts, initial denominator and normalized percentages. 9_montos.csv contains all programs. 10_destacados.csv contains displayed selections. All 16 supplied groups are included; program identities are ministry plus Programa_Final, with no unverified recoding of policy continuity. Supporting program-share data are retained separately, but are not the public figure's measure.
+1_resumen.csv contains aggregate amounts, initial denominator and normalized percentages. 9_montos.csv contains all programs. 10_destacados.csv contains displayed selections. All 15 non-debt supplied groups are included; program identities are ministry plus Programa_Final, with no unverified recoding of policy continuity. Supporting program-share data are retained separately, but are not the public figure's measure.
 
-Reproduce via the single 2_scripts/0_master.R. Active figures: 1_resumen.png and 2_colom.png through 6_arevalo.png. No combined heatmap or monetary-per-100 figure remains. No data or method outside analysis 7 was changed.
+Reproduce via the single 2_scripts/0_master.R. Active figures: 1_resumen.png and 2_colom.png through 6_arevalo.png. No combined heatmap or monetary-per-100 figure remains. The same non-debt scope is used in the state and structural-break analyses. Source amounts and model fits are preserved.
+
+
+Public-debt service is excluded before constructing program changes, selected programs, baseline totals and normalized increase/reduction measures. The classification is based on the Deuda_Pública source group. Raw workbooks retain the excluded rows for provenance.

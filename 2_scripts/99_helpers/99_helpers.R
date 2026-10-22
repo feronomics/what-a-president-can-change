@@ -20,6 +20,18 @@ require_columns <- function(data, columns, label) {
   }
 }
 
+# Exclude the public-debt source group for state and spending-comparison scope.
+# Normalize accents/punctuation only for this exact ministry identity; do not
+# remove unrelated program labels or modify raw source workbooks/model fits.
+without_public_debt <- function(data) {
+  require_columns(data, "Ministerio", "Debt-exclusion input")
+  ministry_key <- gsub(
+    "[^A-Z0-9]", "",
+    toupper(iconv(as.character(data$Ministerio), to = "ASCII//TRANSLIT"))
+  )
+  data[ministry_key != "DEUDAPUBLICA" & !is.na(ministry_key), , drop = FALSE]
+}
+
 # Convert Spanish month labels to integers 1-12.
 # Input: month names. Return: month numbers; unknown labels become NA.
 recode_month <- function(month) {

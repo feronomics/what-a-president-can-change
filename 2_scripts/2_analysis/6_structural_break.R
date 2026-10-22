@@ -24,6 +24,10 @@ break_programs$date <- as.Date(break_programs$date)
 break_ministries <- readxl::read_xlsx(volatility_file, sheet = "ministry_index_long")
 break_ministries$date <- as.Date(break_ministries$date)
 break_raw <- readxl::read_xlsx(config$unified_file, sheet = "SICOIN")
+# Exclude debt before pooling and before constructing annual ministry weights.
+break_programs <- without_public_debt(break_programs)
+break_ministries <- without_public_debt(break_ministries)
+break_raw <- without_public_debt(break_raw)
 
 # Current definition: pool fitted programs using their execution in each month.
 pooled <- break_programs
@@ -136,7 +140,7 @@ p <- ggplot2::ggplot(long, ggplot2::aes(date, value)) +
     subtitle = "Gris: índice mensual · azul: medias antes y después de enero de 2016",
     x = NULL,
     y = "Índice de volatilidad",
-    caption = "Ambos índices usan los mismos ajustes SARIMA. Solo cambia la ponderación: mensual por programa o anual por ministerio. Fecha evaluada: enero de 2016."
+    caption = "Sin servicio de la deuda pública. Ambos índices usan los mismos ajustes SARIMA; solo cambia la ponderación. Fecha evaluada: enero de 2016."
   )
 save_plot(p, folder, "1_comparacion", width = 13, height = 9, center_title = TRUE)
 
@@ -149,7 +153,7 @@ report <- c(
   "",
   "## Data and hypotheses",
   "",
-  "Monthly observations: January 2005–December 2025 (252 observations). The index measures the standard deviation of model residuals; this analysis tests changes in the LEVEL or TREND of that index, not the variance of its disturbances.",
+  "Scope: 15 observed source groups, excluding public-debt service before calculating indices, totals and weights. Monthly observations: January 2005–December 2025 (252 observations). The index measures the standard deviation of model residuals; this analysis tests changes in the LEVEL or TREND of that index, not the variance of its disturbances.",
   "",
   "The January 2016 split is the nominated year boundary: 132 pre-break months and 120 post-break months. September 2016 is an additional date sensitivity. Dates were nominated after inspecting the data, so these are conditional tests, not confirmatory tests of an independently prespecified or unknown break.",
   "",

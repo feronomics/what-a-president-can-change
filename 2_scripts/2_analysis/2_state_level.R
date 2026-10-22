@@ -18,9 +18,17 @@ if (!exists("program_results") || !exists("diagnostics")) {
 }
 
 analysis <- prepare_analysis(raw, program_results, diagnostics, config)
+# Retain full ministry/program data for stages 3 and 5, while every state figure
+# uses the same non-debt scope and recomputes its own totals and denominators.
+state_analysis <- prepare_analysis(
+  without_public_debt(raw),
+  without_public_debt(program_results),
+  without_public_debt(diagnostics),
+  config
+)
 folder <- "2_state"
-caption <- "Fuente: bases SICOIN consolidadas. Estado = 16 grupos disponibles."
-annual <- analysis$state_annual
+caption <- "Fuente: SICOIN. Estado sin servicio de la deuda pública: 15 grupos disponibles."
+annual <- state_analysis$state_annual
 
 # 1. One image with two panels: nominal amount and annual growth rate.
 p <- spending_plot(annual)
@@ -38,7 +46,7 @@ save_table(
 )
 
 # 2. Count ministry-program identities with positive execution in each year.
-p <- ggplot2::ggplot(analysis$state_counts, ggplot2::aes(year, programs)) +
+p <- ggplot2::ggplot(state_analysis$state_counts, ggplot2::aes(year, programs)) +
   ggplot2::geom_line(
     color = "#176b87",
     linewidth = 1
@@ -58,21 +66,21 @@ save_plot(
   "2_programas"
 )
 save_table(
-  analysis$state_counts,
+  state_analysis$state_counts,
   folder,
   "2_programas"
 )
 
 # 3. Pool fitted programs across the state each month; average monthly state
 # indices within each year. This is not a new SARIMA on total state spending.
-state_volatility <- analysis$state_volatility %>%
+state_volatility <- state_analysis$state_volatility %>%
   dplyr::filter(year >= 2005)
 
 # Compare the displayed annual values, giving each available year equal weight.
-# Both requested windows include 2015; these are descriptive reference means,
+# Two non-overlapping ten-year windows; these are descriptive reference means,
 # not an estimated break date or a statistical structural-break test.
-period_means <- dplyr::bind_rows(lapply(c(2005L, 2015L), function(first_year) {
-  last_year <- first_year + 10L
+period_means <- dplyr::bind_rows(lapply(c(2006L, 2016L), function(first_year) {
+  last_year <- first_year + 9L
   values <- state_volatility %>%
     dplyr::filter(year >= first_year, year <= last_year, is.finite(volatility))
   data.frame(
@@ -87,7 +95,7 @@ save_table(period_means, folder, "9_promedios")
 
 # Test the monthly index directly, independently of the annual plot values.
 # Compute here on every run so the figure never reads stale stage-6 results.
-state_test_programs <- program_results
+state_test_programs <- without_public_debt(program_results)
 state_test_programs$Ministerio <- "Estado"
 state_test_data <- aggregate_ministry_index(state_test_programs) %>%
   dplyr::transmute(date, value = volatility_index) %>%
@@ -143,7 +151,7 @@ p <- ggplot2::ggplot(state_volatility, ggplot2::aes(year, volatility)) +
     linetype = "dashed"
   ) +
   ggplot2::scale_color_manual(
-    values = c("2005–2015" = "#176b87", "2015–2025" = "#7c3aed"),
+    values = c("2006–2015" = "#176b87", "2016–2025" = "#7c3aed"),
     labels = sprintf("Media %s: %.3f", period_means$period, period_means$mean_volatility),
     name = NULL
   ) +
@@ -159,7 +167,7 @@ p <- ggplot2::ggplot(state_volatility, ggplot2::aes(year, volatility)) +
     caption = paste(
       caption,
       sprintf("Pruebas sobre %d meses; HAC ajusta por autocorrelación. Cambio solo de nivel: HAC p = %.3f.", nrow(state_test_data), mean_hac$p_value),
-      "Medias anuales: 2015 se incluye en ambas ventanas. Fecha evaluada, no estimada."
+      "Medias anuales: dos períodos de diez años, sin solapamiento. Fecha evaluada, no estimada."
     )
   )
 save_plot(
@@ -175,7 +183,7 @@ save_table(
 )
 
 # 4. Harmonized names only; one histogram for all source groups.
-p <- ggplot2::ggplot(analysis$lifetimes, ggplot2::aes(duration_months)) +
+p <- ggplot2::ggplot(state_analysis$lifetimes, ggplot2::aes(duration_months)) +
   ggplot2::geom_histogram(
     binwidth = 12,
     boundary = 0,
@@ -196,7 +204,7 @@ save_plot(
   "4_duracion"
 )
 save_table(
-  analysis$lifetimes,
+  state_analysis$lifetimes,
   folder,
   "4_duracion"
 )
@@ -229,10 +237,10 @@ save_plot(
 # Denominators include ALL programs/spending, showing unclassified coverage.
 colors <- stats::setNames(
   c("#176b87", "#b45309", "#8b5cf6", "#94a3b8"),
-  levels(analysis$shares$category)
+  levels(state_analysis$shares$category)
 )
 for (type in c("program_pct", "spending_pct")) {
-  shares <- analysis$shares
+  shares <- state_analysis$shares
   shares$percent <- shares[[type]]
   p <- ggplot2::ggplot(shares, ggplot2::aes(category, percent, fill = category)) +
     ggplot2::geom_col(width = 0.65) +
@@ -272,13 +280,13 @@ for (type in c("program_pct", "spending_pct")) {
 }
 
 save_table(
-  analysis$shares,
+  state_analysis$shares,
   folder,
   "6_proporciones"
 )
 
 # 8. Smallest whole-series residual SD among successfully fitted programs.
-top <- analysis$classes %>%
+top <- state_analysis$classes %>%
   dplyr::filter(flag == "OK", is.finite(index_total)) %>%
   dplyr::arrange(index_total, Ministerio, Programa) %>%
   dplyr::slice_head(n = 10)

@@ -19,11 +19,17 @@ if (!exists("analysis")) {
 
 folder <- "5_program"
 ministries <- sort(unique(analysis$classes$Ministerio))
+# Keep existing file numbers for the retained ministries; skip the debt output.
+program_classes <- without_public_debt(analysis$classes)
+program_year <- without_public_debt(analysis$program_year)
 for (i in seq_along(ministries)) {
   ministry <- ministries[i]
+  if (!ministry %in% program_classes$Ministerio) {
+    next
+  }
 
   # Build the label dictionary first so each plotted row has a full-name reference.
-  dictionary <- analysis$classes %>%
+  dictionary <- program_classes %>%
     dplyr::filter(Ministerio == ministry) %>%
     dplyr::arrange(Programa) %>%
     dplyr::select(Ministerio, Programa, index_total, flag)
@@ -36,7 +42,7 @@ for (i in seq_along(ministries)) {
     year = 2005:2025
   ) %>%
     dplyr::left_join(
-      analysis$program_year %>%
+      program_year %>%
         dplyr::filter(Ministerio == ministry),
       by = c("Programa", "year")
     ) %>%
@@ -60,7 +66,7 @@ for (i in seq_along(ministries)) {
     ggplot2::scale_fill_viridis_c(
       option = "C",
       na.value = "#e2e8f0",
-      limits = c(0, max(analysis$program_year$volatility, na.rm = TRUE)),
+      limits = c(0, max(program_year$volatility, na.rm = TRUE)),
       trans = scales::pseudo_log_trans(sigma = 0.05),
       breaks = c(0, 0.1, 0.5, 1, 5, 10),
       labels = c("0", "0.1", "0.5", "1", "5", "10"),
@@ -76,7 +82,7 @@ for (i in seq_along(ministries)) {
       x = NULL,
       y = NULL,
       fill = "Índice",
-      caption = "Fuente: SICOIN. Gris = sin índice disponible. Nombres completos en la tabla de etiquetas."
+      caption = "Fuente: SICOIN. Se excluye el servicio de la deuda pública. Gris = sin índice disponible. Nombres completos en la tabla de etiquetas."
     ) +
     ggplot2::theme(axis.text.y = ggplot2::element_text(size = 9))
 
@@ -99,9 +105,16 @@ for (i in seq_along(ministries)) {
 }
 
 save_table(
-  analysis$program_year %>%
+  program_year %>%
     dplyr::filter(year >= 2005),
   folder,
   "0_indices"
 )
-message("Program heatmaps saved: ", length(ministries), ".")
+# Remove the previously generated debt-only figure and its label dictionary.
+for (file in c(
+  file.path(config$output_dir, "3_graphs", folder, "1_deuda_publica.png"),
+  file.path(config$output_dir, "2_tables", folder, "1_deuda_publica.csv")
+)) {
+  if (file.exists(file)) unlink(file)
+}
+message("Program heatmaps saved: ", dplyr::n_distinct(program_classes$Ministerio), ".")
