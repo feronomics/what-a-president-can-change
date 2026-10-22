@@ -167,7 +167,7 @@ p <- ggplot2::ggplot(state_volatility, ggplot2::aes(year, volatility)) +
     caption = paste(
       caption,
       sprintf("Pruebas sobre %d meses; HAC ajusta por autocorrelación. Cambio solo de nivel: HAC p = %.3f.", nrow(state_test_data), mean_hac$p_value),
-      "Medias anuales: dos períodos de diez años, sin solapamiento. Fecha evaluada, no estimada."
+      "Medias anuales: dos períodos de diez años, sin solapamiento."
     )
   )
 save_plot(
