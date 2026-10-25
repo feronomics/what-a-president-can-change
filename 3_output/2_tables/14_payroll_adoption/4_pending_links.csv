@@ -1,0 +1,2 @@
+"Ministerio","Anio","Unidad_ejecutora","Secretaria","Cod_prog","Nombre_prog","Programa_Final","Archivo_Origen","Devengado_total","Serv_personales","has_personnel_group","pct_planilla","Programa_Final_Fuente","supplied_key","target_count","target_name","link_method"
+"MIDES",2016,NA,NA,"96","RECONSTRUCCIÓN N7",NA,"MIDES_gasto_por_grupo.xlsx",688961.08,0,FALSE,0,"RECONSTRUCCION N7","RECONSTRUCCIONN7",NA,NA,"supplied_final_without_monthly_year"

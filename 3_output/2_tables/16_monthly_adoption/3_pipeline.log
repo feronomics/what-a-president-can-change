@@ -1,0 +1,148 @@
+During startup - Warning messages:
+1: Setting LC_COLLATE=C.UTF-8 failed 
+2: Setting LC_CTYPE=C.UTF-8 failed 
+3: Setting LC_MONETARY=C.UTF-8 failed 
+4: Setting LC_TIME=C.UTF-8 failed 
+[1] "English_United States.utf8"
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Source corrections: 0 workbooks changed; CONAP retained before the recovery stage.
+Recovered monthly records: 0.
+Appending Deuda_Pública: 264 rows
+Appending MAGA: 23460 rows
+Appending MARN: 11160 rows
+Appending MCD: 14937 rows
+Appending MEM: 2832 rows
+Appending MICIVI: 41825 rows
+Appending MIDES: 7920 rows
+Appending MINDEF: 8184 rows
+Appending MINECO: 5412 rows
+Appending MINEDUC: 66120 rows
+Appending MINEX: 3024 rows
+Appending MINFIN: 1284 rows
+Appending MINGOB: 19212 rows
+Appending MINTRAB: 14375 rows
+Appending MSPAS: 43104 rows
+Appending Secretarias: 43519 rows
+Saved consolidated database: 306632 rows.
+Annual payroll: MAGA (2004-2025)
+Annual payroll: MARN (2004-2025)
+Annual payroll: MCD (2004-2025)
+Annual payroll: MEM (2004-2025)
+Annual payroll: MICIVI (2004-2025)
+Annual payroll: MIDES (2012-2025)
+Annual payroll: MINDEF (2004-2025)
+Annual payroll: MINECO (2004-2025)
+Annual payroll: MINEDUC (2004-2025)
+Annual payroll: MINEX (2004-2025)
+Annual payroll: MINFIN (2004-2025)
+Annual payroll: MINGOB (2004-2025)
+Annual payroll: MINTRAB (2004-2025)
+Annual payroll: MSPAS (2004-2025)
+Annual payroll: Secretarias (2004-2025)
+Saved annual payroll: 15868 detail rows; 3184 source program-years; 15 source groups.
+Analyzing Deuda_Pública
+Analyzing MAGA
+Analyzing MARN
+Analyzing MCD
+Analyzing MEM
+Analyzing MICIVI
+Analyzing MIDES
+Analyzing MINDEF
+Analyzing MINECO
+Analyzing MINEDUC
+Analyzing MINEX
+Analyzing MINFIN
+Analyzing MINGOB
+Analyzing MINTRAB
+Analyzing MSPAS
+Analyzing Secretarias
+Programs: 318; fitted: 229; skipped: 89
+State plots saved: 8.
+Ministry plots saved: 6.
+Payroll analyses completed: 228 programs; stable = 100; volatile = 128.
+Program heatmaps saved: 15.
+       definition break_date pre_n post_n  pre_mean post_mean     change
+1         current 2016-01-01   120    120 0.9636736 0.7652035 -0.1984701
+2         current 2016-09-01   128    112 0.9676229 0.7465136 -0.2211093
+3 annual_ministry 2016-01-01   120    120 0.9827748 0.7180913 -0.2646835
+4 annual_ministry 2016-09-01   128    112 0.9865975 0.6948165 -0.2917810
+  percent_change
+1      -20.59516
+2      -22.85077
+3      -26.93226
+4      -29.57447
+  specification break_date   n pre_n post_n                         test
+1          mean 2016-01-01 240   120    120          Chow F (iid errors)
+2          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 12)
+3          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 24)
+4          mean 2016-01-01 240   120    120          Chow F (iid errors)
+5          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 12)
+6          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 24)
+  statistic df1 df2      p_value level_change level_lower level_upper
+1 22.907144   1 238 2.986515e-06   -0.1984701          NA          NA
+2  8.152884   1  NA 4.299274e-03   -0.1984701  -0.3347048 -0.06223546
+3  8.107334   1  NA 4.408653e-03   -0.1984701  -0.3350870 -0.06185329
+4 74.128333   1 238 1.015661e-15   -0.2646835          NA          NA
+5 22.481814   1  NA 2.121425e-06   -0.2646835  -0.3740940 -0.15527292
+6 20.246374   1  NA 6.808239e-06   -0.2646835  -0.3799760 -0.14939091
+       definition
+1         current
+2         current
+3         current
+4 annual_ministry
+5 annual_ministry
+6 annual_ministry
+Structural-break tests and report saved in 3_output/2_tables/6_breaks
+Comparable-window review saved.
+State plots saved: 8.
+Program heatmaps saved: 16.
+       definition break_date pre_n post_n  pre_mean post_mean     change
+1         current 2016-01-01   120    120 0.8137243 0.7074012 -0.1063232
+2         current 2016-09-01   128    112 0.8211198 0.6913547 -0.1297650
+3 annual_ministry 2016-01-01   120    120 0.8317306 0.6707516 -0.1609790
+4 annual_ministry 2016-09-01   128    112 0.8395984 0.6502614 -0.1893370
+  percent_change
+1      -13.06624
+2      -15.80342
+3      -19.35471
+4      -22.55090
+  specification break_date   n pre_n post_n                         test
+1          mean 2016-01-01 240   120    120          Chow F (iid errors)
+2          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 12)
+3          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 24)
+4          mean 2016-01-01 240   120    120          Chow F (iid errors)
+5          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 12)
+6          mean 2016-01-01 240   120    120 HAC Wald chi-square (lag 24)
+  statistic df1 df2      p_value level_change level_lower  level_upper
+1  9.611159   1 238 2.166947e-03   -0.1063232          NA           NA
+2  3.213876   1  NA 7.301631e-02   -0.1063232  -0.2225648  0.009918391
+3  3.102298   1  NA 7.818188e-02   -0.1063232  -0.2246367  0.011990323
+4 40.742550   1 238 9.000020e-10   -0.1609790          NA           NA
+5 11.092746   1  NA 8.666605e-04   -0.1609790  -0.2557113 -0.066246771
+6 10.006843   1  NA 1.559596e-03   -0.1609790  -0.2607189 -0.061239142
+       definition
+1         current
+2         current
+3         current
+4 annual_ministry
+5 annual_ministry
+6 annual_ministry
+Structural-break tests and report saved in 3_output/4_sensitivity/with_debt/2_tables/6_breaks
+Comparable-window review saved.
+Debt sensitivity results: 3_output/4_sensitivity/with_debt
+Full pipeline completed. All results: 3_output
+Warning messages:
+1: Removed 1 row containing missing values or values outside the scale range
+(`geom_line()`). 
+2: Removed 1 row containing missing values or values outside the scale range
+(`geom_line()`). 

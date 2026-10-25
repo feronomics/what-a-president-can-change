@@ -15,7 +15,7 @@ The immediate inputs are the 16 cleaned `SICOIN_*_FINAL.xlsx` workbooks supplied
 
 The input workbooks are final V4 databases; `Programa_Final` is the harmonized program label. The project does not contain an extraction URL, download date, original query, cleaning code, or a complete crosswalk of program-name changes. Those details should be added by the data producers; the new pipeline does not reconstruct or certify them. Source workbooks are retained unchanged.
 
-The single master, `0_master.R`, runs two preprocessing stages: monthly program data and annual payroll data. The program stage reads `programs/by ministry` and writes `programs/unified/SICOIN_consolidated.xlsx`. The payroll stage reads `payroll/by ministry` and writes `payroll/unified/payroll_consolidated.xlsx`. All paths remain relative to `project` and are configured once in `0_master.R`.
+The single master, `0_master.R`, first corrects confirmed source duplicates, then consolidates monthly program data and annual payroll data. The program stage reads `programs/by ministry` and writes `programs/unified/SICOIN_consolidated.xlsx`. The payroll stage reads `payroll/by ministry` and writes `payroll/unified/payroll_consolidated.xlsx`. All paths remain relative to `project` and are configured once in `0_master.R`.
 
 ## Data contents
 
@@ -65,12 +65,13 @@ What is a president able to change/
 │   │   └── unified/
 │   │       └── SICOIN_consolidated.xlsx
 │   └── payroll/
-│       ├── by ministry/             # 14 annual spending files + Secretariat roster file
+│       ├── by ministry/             # 14 ministry spending files + Secretariat spending
 │       └── unified/
 │           └── payroll_consolidated.xlsx
 ├── 2_scripts/
 │   ├── 0_master.R
 │   ├── 1_preprocessing/
+│   │   ├── 0_correct_sources.R
 │   │   ├── 1_append_databases.R
 │   │   └── 2_append_payroll.R
 │   ├── 2_analysis/
@@ -79,7 +80,10 @@ What is a president able to change/
 │   │   ├── 3_ministry_level.R
 │   │   ├── 4_determinants.R
 │   │   ├── 5_program_level.R
-│   │   └── 6_structural_break.R
+│   │   ├── 6_structural_break.R
+│   │   ├── 7_budget_composition.R
+│   │   ├── 8_debt_sensitivity.R
+│   │   └── 9_data_audit.R (independent audit)
 │   └── 99_helpers/
 │       ├── 99_helpers.R
 │       └── 99_payroll_helpers.R
@@ -142,7 +146,7 @@ Rscript --vanilla 2_scripts/0_master.R
 
 You can also open and run `0_master.R` in your R editor, or invoke it by its full path from another working directory. The username configuration determines the project folder in every case. The master checks your normally installed dependencies, loads helpers, writes the unified workbook, and then reads that saved workbook for the analysis. It does not install packages automatically. All analyses use `Programa_Final`; do not change the program column to original labels. Set `min_obs`, `rolling_window`, and `volatility_threshold` in `0_master.R` to change the other analysis settings. The stage scripts expect the configuration/helpers supplied by the master.
 
-One master runs everything: `0_master.R` loads both helper scripts, appends programs, appends annual payroll, then runs analysis scripts 1–5 in numerical order, including the updated `4_determinants.R`. There is no second entry point or pipeline-mode option. Payroll stays annual; it is never expanded into monthly observations. The master can be invoked by full path from another working directory.
+One master runs everything: `0_master.R` loads both helper scripts, corrects confirmed source errors, appends programs, appends annual payroll, then runs analysis scripts 1–8 in numerical order, including the updated `4_determinants.R`. There is no second entry point or pipeline-mode option. Payroll stays annual; it is never expanded into monthly observations. The master can be invoked by full path from another working directory.
 
 Scripts use the `%>%` pipe, loaded through `dplyr` in the master. Functions document their purpose, inputs and returned results; comments and blank lines separate validation, transformation, modeling and export steps. Substantial calls and plot layers are written across separate lines for readability.
 
@@ -163,7 +167,7 @@ Missing numeric results appear as blank Excel cells. Review `diagnostics` before
 
 ## Additional analyses and plots
 
-The single master runs `1_append_databases.R` and `2_append_payroll.R`, then `1_volatility_index.R`, `2_state_level.R`, `3_ministry_level.R`, `4_determinants.R`, `5_program_level.R`, `6_structural_break.R`, and `7_budget_composition.R`. Shared utilities are in `99_helpers.R`; annual validation, linkage, and predictor construction are in `99_payroll_helpers.R`.
+The single master runs `0_correct_sources.R`, `1_append_databases.R` and `2_append_payroll.R`, then `1_volatility_index.R`, `2_state_level.R`, `3_ministry_level.R`, `4_determinants.R`, `5_program_level.R`, `6_structural_break.R`, `7_budget_composition.R`, and `8_debt_sensitivity.R`. Shared utilities are in `99_helpers.R`; annual validation, linkage, and predictor construction are in `99_payroll_helpers.R`.
 
 Each requested bullet produces one PNG, except ministry spending/growth (two separate images) and the program-level request (one image per source group). Ministry comparisons use panels within a single image. Ministry panels use their own vertical scales so large outliers do not flatten the other series; the volatility figure retains a shared vertical scale. Read the axis values when comparing magnitudes across panels. Supporting data are saved as numbered UTF-8 CSVs in the corresponding `3_output/2_tables` folder. Original source data remain unchanged.
 
@@ -180,7 +184,7 @@ Definitions used in these analyses:
 - **Program counts:** a program is active in a year if it has at least one record with positive execution. Its identity is source group plus `Programa_Final`, so identically named programs in different groups remain distinct. Zero-only rows are not counted as active programs.
 - **State coverage:** “Estado” means the sum of the 16 supplied groups, including Secretariats and public debt; it does not establish complete coverage of all public-sector institutions.
 - **Annual volatility:** average of available monthly indices within a year. The state monthly index pools successfully fitted programs across source groups and weights them by execution, using the same missing-index convention as the ministry index. It does not fit a new SARIMA model to aggregate state execution. Coverage counts are included in the tables. The state volatility figure displays 2006–2025; ministry time-series figures and program heatmaps display 2005–2025. Supporting figure tables use the same dates as their figures. Raw data, fitted models, whole-history indices and cross-sectional analyses retain their existing full histories.
-- **State period means:** dashed reference segments compare the arithmetic mean of annual state indices for 2006–2015 (0.974550) and 2016–2025 (0.764116), excluding public-debt service. Each window has ten years and they do not overlap; the displayed series begins in 2006. The 2006–2025 window compares two equal ten-year periods and reduces the possible influence of SARIMA initialization and the rolling index window in the earliest years. This potential initialization influence has not been established empirically. This is an analysis-window choice; models still use their full active histories. `2_tables/2_state/9_promedios.csv` records endpoints, available years and means. The monthly structural-break analysis also uses January 2006–December 2025, with 120 months in each comparison period.
+- **State period means:** dashed reference segments compare the arithmetic mean of annual state indices for 2006–2015 and 2016–2025, excluding public-debt service. Each window has ten years and they do not overlap; the displayed series begins in 2006. The 2006–2025 window compares two equal ten-year periods and reduces the possible influence of SARIMA initialization and the rolling index window in the earliest years. This potential initialization influence has not been established empirically. This is an analysis-window choice; models still use their full active histories. `2_tables/2_state/9_promedios.csv` records endpoints, available years and means. The monthly structural-break analysis also uses January 2006–December 2025, with 120 months in each comparison period.
 - **Initial unavailable indices:** the model is estimated on each program's complete active series, not trained on 2004 as a separate holdout period. The trailing twelve-residual standard deviation is unavailable for the first eleven active observations of each fitted program; these values are missing, not zero. A January 2004 start can therefore have an index in December 2004. Seasonal differencing and model initialization also affect early residuals. Omitting 2004 from time-series figures is a display choice, not a change to model estimation or an assertion that every 2004 observation lacks an index.
 - **Duration:** inclusive months between first and last positive execution, including interior pauses. These are observed durations within 2004–2025; programs may have begun earlier or continued later. All analyses use harmonized names (`Programa_Final`) exclusively. The state duration plot is a single histogram; ministry histograms also use harmonized names. Programs with no positive execution have no active duration and are omitted from histograms.
 - **Budget execution/modification:** annual execution is the sum of monthly execution flows. Assigned and current budgets use the aggregate **December snapshot**, rather than adding monthly budget stocks. Execution rate is `100 * annual execution / December Vigente`; modification rate is `100 * (December Vigente - December Asignado) / December Asignado`. Zero denominators yield missing values. Large modification percentages are retained rather than capped.
@@ -190,11 +194,11 @@ Definitions used in these analyses:
 
 ## Annual payroll data and determinants
 
-**Frequency confirmed by inspection of every worksheet:** the 14 `*_gasto_por_grupo.xlsx` workbooks have `Anio` and no month/date field. They contain annual spending, not monthly payroll. Coverage is 2004–2025, except MIDES (2012–2025). The workbook `secretarias_por_ano.xlsx` contains annual Secretariat counts, rosters, and changes, **not expenditure**; it is preserved as auxiliary sheets and is excluded from payroll percentages. There is no payroll spending workbook for Secretariats or public debt.
+**Frequency:** the 15 active spending workbooks contain annual Anio, not monthly data: 14 ministries and Secretarias. Coverage is 2004–2025, except MIDES (2012–2025). Secretarias_gasto_por_grupo.xlsx contains monetary expenditure by executing unit and institution. The previous secretarias_por_ano.xlsx was only counts/rosters and is now archived with the old sources. There is no payroll spending workbook for public debt.
 
 Each spending workbook contains `detalle` (year, entity, program code/name, expenditure type/group, assigned/current budget, and `Devengado`) and `resumen_planilla` (annual program spending, personnel spending, and supplied percentages). Preprocessing appends all detail rows with source/ministry provenance, preserves the supplied summaries separately, and recalculates annual totals from detail. **Servicios personales** is spending group `000`, checked against its label. Payroll share is `100 * personnel Devengado / total Devengado`, with nonpositive denominators left missing. Group codes remain character strings. These data measure personnel expenditure, not employee headcounts.
 
-The consolidated workbook contains `detalle`, `anual`, `resumen_origen`, `fuentes`, `conciliacion`, and three `secretarias_*` auxiliary sheets. Detail totals are reconciled to the supplied annual summaries, allowing small rounding differences; the precise detail amounts are retained. All three source Secretariat sheets are preserved without pretending their counts are monetary spending.
+The payroll consolidated workbook contains detalle, anual, resumen_origen, fuentes and conciliacion. Program-year identity includes executing unit and institution so Secretariat records are not conflated. Comprometido and Devengado remain separate columns; personnel shares use Devengado. Supplied final program names are retained and validated against monthly final names in the same ministry and year.
 
 **Linkage:** annual payroll program labels are matched within ministry/year to the existing original/standardized/final-name crosswalk in the monthly database. Formatting normalization removes case, accent, and punctuation differences; a match must identify exactly one `Programa_Final`. A cross-year alias is accepted only when it is unique across the full crosswalk and there is no year-specific match. No fuzzy matches or shared program-code assumptions are used. Original labels serve only as linkage evidence; every analysis still has harmonized ministry-program identities. Broad headings such as “GASTOS DE FUNCIONAMIENTO” are retained as unmatched instead of being allocated to several programs. `2_enlaces.csv` and `3_cobertura.csv` expose unmatched rows and their expenditure coverage. Absence of a match is not treated as zero personnel spending.
 
@@ -214,7 +218,7 @@ The consolidated workbook contains `detalle`, `anual`, `resumen_origen`, `fuente
 `4_determinants.R` implements the three requested bullets, with one plot each:
 
 1. **Correlation:** a scatterplot of the program's personnel-spending share and `index_total`, with Pearson and Spearman coefficients. One observation is one linked harmonized ministry-program. Its personnel share is calculated from the sums of payroll and total expenditure across available linked years, not an unweighted average of percentages. The volatility index remains the program's full active-history index; the available payroll years are explicit in the covariate table, so the two time windows can differ.
-2. **Payroll and volatility:** `2_planilla` compares personnel-spending shares for the same 142 complete-case programs used in the logit (58 stable, 84 volatile). Boxplots show medians and the middle 50%, with every program drawn as a reproducibly jittered point. Median shares are 66.1% and 6.9%, respectively. No ministry examples or top-ten selection are used. `5_planilla` records the sample; `9_resumen` records group counts, medians and quartiles.
+2. **Payroll and volatility:** `2_planilla` compares personnel-spending shares for the same complete-case programs used in the logit. Boxplots show medians and the middle 50%, with every program drawn as a reproducibly jittered point. No ministry examples or top-ten selection are used. `5_planilla` records the sample; `9_resumen` records group counts, medians and quartiles.
 3. **Logistic regression:** `volatile ~ payroll_10pp + longevity_years + name_change + department_count`, estimated with binomial maximum likelihood. The outcome is 1 for `index_total > 0.5` and 0 for `<0.5`; equality and missing indices are excluded. `payroll_10pp` measures increases of 10 percentage points; longevity is the inclusive observed active span in years. The odds-ratio plot shows Wald 95% intervals. Model coefficients, exclusions, settings, warnings, and the fitted R model are saved. The script checks class variation, design rank, convergence, and finite estimates/intervals.
 
 To implement the requested name-change predictor, `name_change` indicates whether the **set of normalized source aliases changes across active years within one harmonized program**. This is a documented proxy for an observed label change, not proof of a formal administrative renaming. It does not create separate program identities or bring back original-name histograms. Its year-by-year evidence is saved in `10_renombres.csv`.
@@ -229,19 +233,19 @@ Supporting CSVs in `3_output/2_tables/4_determinants` include `1_covariables`, `
 
 ## Validation of the supplied release
 
-The complete pipeline was run successfully. The unified workbook contains **307,954 rows** from **16 source workbooks**, with every original row and column checked against its source after saving. Results cover **264 calendar months (2004–2025)** and **318 program series**: **229 fitted successfully** and **89 were skipped**. The correction recovered 33 programs previously excluded by the whole-series log-domain rule. There are 115 active program-months with execution at or below -1; these source amounts are preserved, their transformed observations/residuals are missing, and coverage is explicitly recorded. The remaining skips are short histories (71), constant series (16), and SARIMA errors (2).
+The current unified workbook contains **306,632 rows** from **16 source workbooks**, following adoption of the revised monthly delivery on 24 October 2026. Source-to-consolidated checks compare every retained value and total. The model workbook records program fit/skip counts and transformation diagnostics. Negative source amounts remain preserved; values at or below -1 become missing only in the transformed series.
 
 Verification checked saved workbook dimensions, recomputed ministry weights from saved program results, compared the helper's residuals with a direct SARIMA fit, and checked short/constant series, active-life trimming, and missing/zero-execution aggregate behavior.
 
-The additional analyses generated **30 PNGs** (8 state, 6 ministry comparisons, 16 program heatmaps). Validation reconciled annual execution to the consolidated rows, checked December budget totals, active program counts, durations using harmonized program names, percentage denominators, and available covariates. Ministry-year tables follow each source group's actual coverage rather than inventing observations before its first recorded year. The classification threshold for all analyses is 0.5, configured once in `0_master.R`; plot labels are generated from that setting. Fitted programs account for 98.87% of supplied execution; 1.13% belongs to programs without an index. Classification: 94 stable, 135 volatile, 89 without an index.
+The main outputs contain 8 state, 6 ministry, 15 non-debt program, 4 determinants, 1 break and 6 government-comparison PNGs. Annual execution, December budgets, program counts, harmonized durations and percentage denominators are checked against consolidated data. The classification threshold is 0.5, configured in the master. Current counts and spending coverage are in the state and model tables.
 
-The payroll analysis adds **4 PNGs**, for **34 plots before the structural-break audit**. Its consolidated workbook contains **11,967 detail rows** and **1,354 annual source program records** from **14 ministries**. **1,126 records link unambiguously** to **172 harmonized programs**, covering **57.07% of payroll-source spending**; 228 source records remain unmatched. The complete-case correlation/regression sample contains **142 programs** (58 stable and 84 volatile). Among all 318 program identities, 87 have valid volatility but no linked payroll and 89 have no valid volatility index. These are sample exclusions, not zero payroll amounts.
+The adopted payroll workbook contains **15,868 detail rows** and **3,184 source unit/program-year records**, covering **14 ministries plus Secretarias**. Linkage preserves supplied final names; nonempty names without a monthly counterpart in that year remain unmatched. Current coverage and model exclusions are exported in 2_tables/4_determinants. The refreshed complete-case sample contains 228 harmonized programs (100 stable, 128 volatile).
 
-Payroll validation compared every detail row with its source, recomputed annual totals and personnel shares, checked Secretariat exclusion, tested that ambiguous aliases stay unmatched, and reproduced the saved regression coefficients and correlations from exported covariates. The logistic model converged with all four requested predictors. Images were visually checked for legibility and missing-data labels.
+Payroll validation compares every source detail row with the saved consolidation, recomputes annual and personnel totals, checks Secretariat unit identity, and verifies that linkage does not multiply rows. Supplied final names take priority; the approved alias rules are fallback only for blank names. The revised monthly delivery now includes MIDES 2016 Reconstrucción N7 and resolves the nine previously documented program/year amount differences to cent precision. Their former unmatched status is preserved in the historical review reports.
 
 ## Structural-break audit
 
-`2_scripts/2_analysis/6_structural_break.R` runs last from the same master and adds one comparison figure (35 PNGs in total). It reads saved fitted results and does not modify production volatility indices. Outputs:
+`2_scripts/2_analysis/6_structural_break.R` runs from the same master and adds a monthly comparison figure. It reads fitted results without refitting aggregate volatility models. Outputs:
 
 - `3_output/2_tables/6_breaks/1_series.csv`: monthly pooled-program index and annual ministry-weight sensitivity, computed using the same fitted results.
 - `2_tests.csv`: Chow F and Newey–West HAC Wald tests (12 and 24 lags), for mean-only and joint level/trend changes at January 2016; September 2016 is an image-informed date sensitivity.
@@ -249,7 +253,7 @@ Payroll validation compared every detail row with its source, recomputed annual 
 - `4_report.md`: complete methods, results and interpretation of the weighting sensitivity and structural-break tests.
 - `3_output/3_graphs/6_breaks/1_comparacion.png`: both monthly definitions on a common scale, with January 2016 and pre/post means.
 
-For January 2016 in the **current state series excluding debt**, using January 2006–December 2025, the mean-only Chow test gives F(1,238) = 26.10141, p = 6.6453e-7; lag-12 HAC p = 0.002232 (lag-24 p = 0.002305). Non-overlapping 2006–2015/2016–2025 means are 0.974550 and 0.764116, a 21.59% decline. The joint level/trend Chow gives F(2,236) = 7.02052, p = 0.001092; lag-12 HAC p = 0.00006513 (lag-24 p = 0.000008004). Both specifications remain significant at 5% under both HAC lags. The state and monthly break figures use the same two ten-year periods.
+The January 2016 tests use January 2006–December 2025, with 120 months on each side. Current means, differences, Chow tests and lag-12/24 HAC tests are regenerated in 2_tables/6_breaks/4_report.md and its CSVs. The report distinguishes a mean shift from the joint level/trend hypothesis. Consult the regenerated results after each source correction.
 
 
 Dates were motivated by a prior image: tests are conditional, not independently prespecified or search-adjusted. The HAC calculation accounts for serial correlation/heteroskedasticity in the second-stage regression, not uncertainty from estimating SARIMA. It was numerically checked against installed `sandwich::NeweyWest` with identical settings; Chow statistics were checked against separate-segment OLS fits. No packages were installed. See the [Chow documentation](https://search.r-project.org/CRAN/refmans/strucchange/html/sctest.formula.html) and [Newey–West documentation](https://sandwich.r-forge.r-project.org/reference/NeweyWest.html).
@@ -274,7 +278,7 @@ First observed labels do not establish legal creation. Reorganizations, emergenc
 
 Analyses 2 (all state-level figures), 6 (structural breaks) and 7 (program spending by government) now exclude the `Deuda_Pública` source group. The helper `without_public_debt` normalizes only the ministry key to recognize this source. Totals, baseline denominators, ministry weights, pooled state indices, rankings and classifications are recomputed after exclusion. Both weighting definitions in `6_breaks` exclude debt. Scope is stated in graph notes/captions and the break report; titles omit the debt-exclusion qualification.
 
-The state classification therefore covers 317 identities: 93 stable, 135 volatile and 89 without an index; spending shares are 60.79%, 37.75% and 1.45%, respectively. The two ten-year state averages are 0.974550 (2006–2015) and 0.764116 (2016–2025). State chart tests and the structural-break report use the exact same non-debt monthly series; this was verified numerically. State execution totals reconcile to source totals less debt execution.
+State classification excludes the debt identity and retains programs without an index in its denominators. Current class counts and spending shares are saved alongside the state figures. Both state and monthly break figures compare 2006–2015 with 2016–2025 and use the same non-debt monthly series.
 
 Source workbooks, unified data, per-program SARIMA estimates, ministry-level comparison figures and determinants retain their existing scope. The program heatmap folder excludes the debt-only figure and its table; its combined annual-index table also excludes debt. The full model workbook still includes the debt source group: 318 identities and 229 fits. These counts must not be confused with the non-debt state totals. The shared full-scope analysis object remains available to ministry/program stages, while the state stage uses a separate filtered object. No inflation adjustment was introduced.
 
@@ -297,3 +301,37 @@ The main state, program, structural-break and government-spending results exclud
 The three comparison CSVs stack both scopes with an explicit `scope` column. The alternative contains 31 graphs (8 state, 16 program groups including debt, 1 breaks and 6 government spending) and their supporting tables/report. File names mirror the main outputs. Notes identify scope; titles remain unchanged.
 
 Only inclusion of debt changes: harmonized identities, fitted SARIMA results, threshold, time windows and formulas remain the same. Aggregated indices, weights, totals, denominators, program selections and break tests are recomputed for each scope. Main results remain in their existing folders. Ministry and payroll analyses already use their original full scope and are not duplicated. No models or source data are changed by this sensitivity analysis.
+
+## Source corrections and pending data
+
+The master first runs 2_scripts/1_preprocessing/0_correct_sources.R. This removes complete duplicate records (all fields, money compared at cent precision) while preserving CONAP records and unresolved rows whose geography is only MULTIDEPARTAMENTAL REGION. The latter exception retains the new MICIVI delivery for later source verification. The stage also corrects the MINTRAB May 2005 recreation execution amount from Q7,052,675.82 to Q528,851.91 using the documented correction in archive/cleaning/errors_in_database.docx; the document is retained as evidence and is not read by the pipeline. Identical names or codes alone never justify deletion.
+
+On 23 October 2026, 1,630 monthly records and 85 annual payroll-detail records were removed. Original copies of the 17 changed workbooks are retained in archive/2026-10-23_source_corrections (ignored by Git). Row-level changes and the post-correction audit are in 3_output/2_tables/9_data_audit. Repeated runs do not reapply the deductions.
+
+The supplied SICOIN_consolidated_corregido.xlsx recovered 109 monthly rows: MEM January 2008 (7), MINTRAB May 2006 (51) and June 2006 (51). These rows are preserved permanently in 1_databases/corrections/1_recovered_months.csv and imported reproducibly into the individual files by 0_correct_sources.R; repeated runs validate the existing blocks without appending them again. PDF references are retained in Archivo_Origen. A redelivery without this optional column is checked on substantive values before restoring the verified PDF references. The append stage otherwise uses the source workbook name. The historical post-recovery total was 306,433 rows. Backups before recovery are in archive/2026-10-23_recovered_months. The revised monthly sources adopted on 24 October include the missing CONAP July–December 2011 observations. The adopted payroll sources of 24 October resolve MIDES 2012 with actual annual expenditure and personnel amounts; the monthly recovery CSV remains unchanged.
+
+Run the independent audit with source("2_scripts/2_analysis/9_data_audit.R", encoding = "UTF-8"). Audit tables compare source and consolidated records; the report identifies completed corrections and pending gaps.
+
+The historical fixed-file comparison and recovery log are in 3_output/2_tables/10_fixed_review. Before recovery, all 306,324 existing record occurrences matched and only 109 additions were present in the supplied file. After that recovery, all 306,433 records matched, including names and provenance, at cent precision. 10_fixed_review.R reproduced that historical comparison; its supplied reference workbook is not required by the master. No CONAP records were imported in that recovery step; CONAP was later completed by adopting the revised monthly sources.
+
+The pipeline does not depend on SICOIN_consolidated_corregido.xlsx or the Word error report. The Excel may be deleted after comparison; the Word report is archived at archive/cleaning/errors_in_database.docx. Keep the permanent 109-row correction CSV in version control. 10_fixed_review.R is an optional historical comparison tool and requires the supplied workbook only when explicitly run; the master does not call it.
+
+## Adoption of corrected payroll on 24 October 2026
+
+The 15 corrected individual spending workbooks are now active in 1_databases/payroll/by ministry. Previous workbooks, their consolidation and copies of their determinants outputs are archived in archive/2026-10-24_payroll_previous. The old Secretariat roster was archived as auxiliary historical material; its replacement is genuine expenditure data.
+
+The adoption preserves input file hashes in 3_output/2_tables/14_payroll_adoption/1_file_manifest.csv. All 15 sources reconcile exactly with the rebuilt consolidation; evidence is in 2_source_validation.csv. The payroll consolidation and determinants figures/tables were regenerated. Monthly data and SARIMA models were not changed.
+
+Readxl uses full-column inference for the consolidated annual data to retain Secretariat unit/institution fields, which are missing by design in ministry rows. The supplied final name is accepted only when its normalized spelling matches one unique monthly final name in the same group and year. A supplied nonempty unresolved name cannot be silently replaced by a cross-year fallback. Pending positive-spending links are recorded in 14_payroll_adoption/4_pending_links.csv.
+
+Historical comparison scripts and reports in 11_payroll_review describe the previous review versions; the active inputs and latest source checks are described in 14_payroll_adoption. The master remains the single entry point.
+
+## Adoption of revised monthly sources on 24 October 2026
+
+The 16 revised monthly workbooks are active in 1_databases/programs/by ministry. Their predecessors, the previous consolidated workbook, and a snapshot of all previous results are retained in archive/2026-10-24_monthly_previous. The archive is ignored by Git; the archived workbooks retain their original SHA256 hashes, recorded in 3_output/2_tables/16_monthly_adoption/1_file_manifest.csv.
+
+The new consolidation has 306,632 rows. CONAP now includes all twelve months of 2011, with Q89,580,207.52 executed. All nine previously reviewed program/year totals now agree with annual payroll expenditure to cent precision, including MIDES Reconstrucción N7. The full master was rerun, including all main analyses and the public-debt sensitivity outputs. There are 318 program identities, 229 fitted indices and 89 skipped series; the determinants model uses 228 complete programs.
+
+The unresolved MICIVI 2010 regional-label issue remains deliberately unchanged. Thirty exact duplicate occurrences with zero amounts are retained because their apparent duplication may reflect lost regional identifiers; the cleaning stage protects rows labeled only MULTIDEPARTAMENTAL REGION from automatic deletion. Existing MEM/MINTRAB recovery blocks are verified and their historical PDF provenance is restored without changing substantive values.
+
+The comparison before adoption is preserved in 3_output/2_tables/15_monthly_review. Current adoption checks and execution logs are in 16_monthly_adoption. Run 2_scripts/2_analysis/14_monthly_adoption.R after the master to verify the adopted snapshot; 9_data_audit.R provides the broader independent audit. Historical review reports describe the versions that were examined at the time, rather than unresolved status in the current data.

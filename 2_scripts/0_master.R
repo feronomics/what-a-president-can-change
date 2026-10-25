@@ -4,7 +4,7 @@
 ## Project:             Que todo cambie para que nada cambie
 ## Affiliation:         Asociación de Investigación y Estudios Sociales (ASIES)
 ## Title:               Master pipeline
-## Purpose:             Single master: preprocess programs/payroll, then run analyses 1–7.
+## Purpose:             Single master: preprocess programs/payroll, then run analyses 1–8.
 ## Inputs / outputs:    Monthly programs and annual payroll -> consolidated data, 40 plots, tables.
 ## Execution:           Run 2_scripts/0_master.R from R or Rscript.
 ## Method provenance:   Refactored from volatility_all_ministries_FIXED.R.
@@ -96,7 +96,7 @@ source(
 
 # ======================== PREPROCESS BOTH DATASETS ==========================
 # Programs stay monthly; payroll stays annual. Each gets its own workbook.
-for (script in c("1_append_databases.R", "2_append_payroll.R")) {
+for (script in c("0_correct_sources.R", "1_append_databases.R", "2_append_payroll.R")) {
   source(
     file.path("2_scripts", "1_preprocessing", script),
     local = pipeline_env

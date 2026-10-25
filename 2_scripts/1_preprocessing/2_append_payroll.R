@@ -5,7 +5,7 @@
 ## Title:               Consolidate annual payroll databases
 ## Purpose:             Append annual detail and summaries; validate frequency and totals.
 ## Inputs:              1_databases/payroll/by ministry/*_gasto_por_grupo.xlsx.
-## Auxiliary input:     secretarias_por_ano.xlsx is counts/rosters, NOT payroll expenditure.
+## Scope:               14 ministry spending files plus Secretariat spending by executing unit.
 ## Output:              1_databases/payroll/unified/payroll_consolidated.xlsx.
 ## Execution:           Run the complete pipeline: 2_scripts/0_master.R.
 ## Frequency:           Annual Anio; never interpolate/repeat payroll into monthly rows.
@@ -30,6 +30,6 @@ writexl::write_xlsx(
 )
 message(
   "Saved annual payroll: ", nrow(payroll_sheets$detalle), " detail rows; ",
-  nrow(payroll_sheets$anual), " source program-years; ", nrow(payroll_sheets$fuentes), " ministries."
+  nrow(payroll_sheets$anual), " source program-years; ", nrow(payroll_sheets$fuentes), " source groups."
 )
 rm(payroll_sheets)

@@ -1,0 +1,5 @@
+Warning messages:
+1: Removed 1 row containing missing values or values outside the scale range
+(`geom_line()`).
+2: Removed 1 row containing missing values or values outside the scale range
+(`geom_line()`).

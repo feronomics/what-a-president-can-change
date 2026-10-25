@@ -38,12 +38,17 @@ source_rows <- lapply(source_files, function(path) {
     ),
     basename(path)
   )
-  if (any(c("Ministerio", "Archivo_Origen") %in% names(raw))) {
+  if ("Ministerio" %in% names(raw)) {
     stop("Reserved provenance columns in ", path)
   }
 
   raw$Ministerio <- sub("^SICOIN_(.+?)_(Unificado_)?[0-9]{4}.*$", "\\1", basename(path), perl = TRUE)
-  raw$Archivo_Origen <- basename(path)
+  if (!"Archivo_Origen" %in% names(raw)) {
+    raw$Archivo_Origen <- basename(path)
+  }
+  if (anyNA(raw$Archivo_Origen) || any(trimws(raw$Archivo_Origen) == "")) {
+    stop("Missing source provenance in ", path)
+  }
   message("Appending ", raw$Ministerio[1], ": ", nrow(raw), " rows")
   raw
 })

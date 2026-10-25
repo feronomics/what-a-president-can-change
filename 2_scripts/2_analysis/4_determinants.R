@@ -37,7 +37,8 @@ require_columns(
 )
 annual <- readxl::read_xlsx(
   config$payroll_unified_file,
-  sheet = "anual"
+  sheet = "anual",
+  guess_max = 100000L
 )
 diagnostics <- readxl::read_xlsx(
   volatility_file,

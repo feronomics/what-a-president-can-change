@@ -1,0 +1,7 @@
+All 306433 records match the supplied fixed workbook at cent precision, including labels and provenance.
+All 16 sources reconcile with the consolidated database.
+No full-record duplicates remain.
+MEM January 2008 and MINTRAB May/June 2006 are present.
+Recovery is idempotent: zero rows added on rerun.
+CONAP records remain unchanged; July-December 2011 are still absent.
+MIDES payroll 2012 is not supplied by the monthly fixed workbook.

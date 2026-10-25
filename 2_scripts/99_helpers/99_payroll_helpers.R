@@ -62,19 +62,22 @@ read_payroll_sources <- function(config) {
     # Read detail and supplied summaries, then validate required fields.
     detail_data <- readxl::read_xlsx(
       file,
-      sheet = "detalle"
+      sheet = "detalle",
+      guess_max = 100000L
     )
     summary_data <- readxl::read_xlsx(
       file,
-      sheet = "resumen_planilla"
+      sheet = "resumen_planilla",
+      guess_max = 100000L
     )
     validate_annual(detail_data, file)
     validate_annual(summary_data, file)
     require_columns(
       detail_data,
       c(
-        "Entidad", "Cod_prog", "Nombre_prog", "Tipo", "Cod_grupo",
-        "Nombre_grupo", "Asignado", "Vigente", "Devengado"
+        if (ministry != "Secretarias") "Entidad",
+        "Cod_prog", "Nombre_prog", "Programa_Final", "Tipo", "Cod_grupo",
+        "Nombre_grupo", "Asignado", "Vigente", "Comprometido", "Devengado"
       ),
       file
     )
@@ -83,7 +86,7 @@ read_payroll_sources <- function(config) {
       c("Cod_prog", "Nombre_prog", "Devengado_total", "Serv_personales", "pct_planilla"),
       file
     )
-    for (column in c("Asignado", "Vigente", "Devengado")) {
+    for (column in c("Asignado", "Vigente", "Comprometido", "Devengado")) {
       if (!is.numeric(detail_data[[column]]) || any(!is.finite(detail_data[[column]]))) {
         stop("Invalid ", column, ": ", file)
       }
@@ -106,6 +109,20 @@ read_payroll_sources <- function(config) {
     if (any(detail_data$Cod_grupo == "000" & payroll_key(detail_data$Nombre_grupo) != "SERVICIOSPERSONALES")) {
       stop("Group 000 disagrees with personnel label: ", file)
     }
+
+    # Keep Secretariat institutions separate before summing program amounts.
+    # Ministry workbooks do not have these fields; missing values are intentional.
+    for (column in c("Unidad_ejecutora", "Secretaria")) {
+      if (!column %in% names(detail_data)) {
+        detail_data[[column]] <- NA_character_
+      }
+      if (!column %in% names(summary_data)) {
+        summary_data[[column]] <- NA_character_
+      }
+      detail_data[[column]] <- as.character(detail_data[[column]])
+      summary_data[[column]] <- as.character(summary_data[[column]])
+    }
+    summary_data$Cod_prog <- as.character(summary_data$Cod_prog)
 
     # Record where every row came from before combining ministries.
     detail_data$Ministerio <- ministry
@@ -132,9 +149,16 @@ read_payroll_sources <- function(config) {
   detail <- dplyr::bind_rows(detail)
   summaries <- dplyr::bind_rows(summaries)
 
+  # Source names and executing units are part of the annual record identity.
+  # Preserve the supplied final name for audited linkage to the monthly data.
+  keys <- c(
+    "Ministerio", "Anio", "Unidad_ejecutora", "Secretaria",
+    "Cod_prog", "Nombre_prog", "Programa_Final", "Archivo_Origen"
+  )
+
   # Aggregate detail to source program-years and calculate personnel shares.
   annual <- detail %>%
-    dplyr::group_by(Ministerio, Anio, Cod_prog, Nombre_prog, Archivo_Origen) %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(keys))) %>%
     dplyr::summarise(
       Devengado_total = sum(Devengado),
       Serv_personales = sum(Devengado[Cod_grupo == "000"]),
@@ -150,7 +174,6 @@ read_payroll_sources <- function(config) {
     )
 
   # Reconcile recalculated amounts with the supplied annual summaries.
-  keys <- c("Ministerio", "Anio", "Cod_prog", "Nombre_prog", "Archivo_Origen")
   if (anyDuplicated(summaries[keys])) {
     stop("Duplicate keys in supplied payroll summary.")
   }
@@ -338,6 +361,12 @@ payroll_approved_names <- function(linked, programs) {
 # Ambiguous exact aliases cannot be overridden by the fallback.
 # Final identities always come unchanged from the monthly Programa_Final column.
 link_payroll_programs <- function(annual, programs) {
+  # Current files provide an explicit final name. Validate it against the same
+  # ministry and year, rather than replacing it using the original label.
+  if ("Programa_Final" %in% names(annual)) {
+    return(link_payroll_supplied(annual, programs))
+  }
+
   linked <- link_payroll_exact(annual, programs)
   linked <- payroll_approved_names(linked, programs)
   pending <- which(linked$link_method == "unmatched")
@@ -514,4 +543,54 @@ payroll_program_covariates <- function(programs, diagnostics, linked, config) {
     name_history = names_by_year,
     annual_linked = linked_year
   )
+}
+
+# Validate the supplied final names without forcing unresolved equivalences.
+# A nonempty name absent in the monthly year stays unmatched (e.g. MIDES N7).
+# The original source label and all amounts remain available in the link table.
+link_payroll_supplied <- function(annual, programs) {
+  targets <- programs %>%
+    dplyr::transmute(
+      Ministerio,
+      Anio = .data[["Año"]],
+      supplied_key = payroll_key(Programa_Final),
+      monthly_final = Programa_Final
+    ) %>%
+    dplyr::distinct() %>%
+    dplyr::group_by(Ministerio, Anio, supplied_key) %>%
+    dplyr::summarise(
+      target_count = dplyr::n_distinct(monthly_final),
+      target_name = dplyr::first(monthly_final),
+      .groups = "drop"
+    )
+
+  linked <- annual %>%
+    dplyr::mutate(
+      Programa_Final_Fuente = Programa_Final,
+      supplied_key = payroll_key(Programa_Final)
+    ) %>%
+    dplyr::left_join(targets, by = c("Ministerio", "Anio", "supplied_key")) %>%
+    dplyr::mutate(
+      Programa_Final = dplyr::if_else(target_count == 1L, target_name, NA_character_),
+      link_method = dplyr::case_when(
+        target_count == 1L ~ "supplied_final_year",
+        is.na(supplied_key) | supplied_key == "" ~ "unmatched",
+        TRUE ~ "supplied_final_without_monthly_year"
+      )
+    )
+
+  # Only blank source names may use the previously approved alias rules.
+  # Never override a supplied nonempty name with an unapproved equivalence.
+  pending <- which(is.na(linked$Programa_Final_Fuente) | trimws(linked$Programa_Final_Fuente) == "")
+  if (length(pending)) {
+    fallback_data <- annual[pending, setdiff(names(annual), "Programa_Final"), drop = FALSE]
+    fallback <- link_payroll_programs(fallback_data, programs)
+    linked$Programa_Final[pending] <- fallback$Programa_Final
+    linked$link_method[pending] <- fallback$link_method
+  }
+
+  if (nrow(linked) != nrow(annual)) {
+    stop("Supplied-name linkage multiplied payroll rows.")
+  }
+  linked
 }

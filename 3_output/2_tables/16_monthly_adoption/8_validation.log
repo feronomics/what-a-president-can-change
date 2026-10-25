@@ -1,0 +1,198 @@
+During startup - Warning messages:
+1: Setting LC_COLLATE=C.UTF-8 failed 
+2: Setting LC_CTYPE=C.UTF-8 failed 
+3: Setting LC_MONETARY=C.UTF-8 failed 
+4: Setting LC_TIME=C.UTF-8 failed 
+[1] "English_United States.utf8"
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Adoption verified: 16 sources; 306,632 rows; 9/9 cases matched; CONAP complete.
+Annual payroll: MAGA (2004-2025)
+Annual payroll: MARN (2004-2025)
+Annual payroll: MCD (2004-2025)
+Annual payroll: MEM (2004-2025)
+Annual payroll: MICIVI (2004-2025)
+Annual payroll: MIDES (2012-2025)
+Annual payroll: MINDEF (2004-2025)
+Annual payroll: MINECO (2004-2025)
+Annual payroll: MINEDUC (2004-2025)
+Annual payroll: MINEX (2004-2025)
+Annual payroll: MINFIN (2004-2025)
+Annual payroll: MINGOB (2004-2025)
+Annual payroll: MINTRAB (2004-2025)
+Annual payroll: MSPAS (2004-2025)
+Annual payroll: Secretarias (2004-2025)
+                                                  file source_rows
+1  SICOIN_Deuda_Pública_Unificado_2004_2025_FINAL.xlsx         264
+2           SICOIN_MAGA_Unificado_2004_2025_FINAL.xlsx       23460
+3           SICOIN_MARN_Unificado_2004_2025_FINAL.xlsx       11160
+4            SICOIN_MCD_Unificado_2004_2025_FINAL.xlsx       14937
+5            SICOIN_MEM_Unificado_2004_2025_FINAL.xlsx        2832
+6         SICOIN_MICIVI_Unificado_2004_2025_FINAL.xlsx       41825
+7          SICOIN_MIDES_Unificado_2004_2025_FINAL.xlsx        7920
+8         SICOIN_MINDEF_Unificado_2004_2025_FINAL.xlsx        8184
+9         SICOIN_MINECO_Unificado_2004_2025_FINAL.xlsx        5412
+10         SICOIN_MINEX_Unificado_2004_2025_FINAL.xlsx        3024
+11        SICOIN_MINFIN_Unificado_2004_2025_FINAL.xlsx        1284
+12        SICOIN_MINGOB_Unificado_2004_2025_FINAL.xlsx       19212
+13       SICOIN_MINTRAB_Unificado_2004_2025_FINAL.xlsx       14375
+14         SICOIN_MSPAS_Unificado_2004_2025_FINAL.xlsx       43104
+15                 SICOIN_MINEDUC_2004_2025_FINAL.xlsx       66120
+16   SICOIN_Secretarias_Unificado_2004_2025_FINAL.xlsx       43519
+   consolidated_rows identical_values_and_order execution_difference
+1                264                       TRUE                    0
+2              23460                       TRUE                    0
+3              11160                       TRUE                    0
+4              14937                       TRUE                    0
+5               2832                       TRUE                    0
+6              41825                       TRUE                    0
+7               7920                       TRUE                    0
+8               8184                       TRUE                    0
+9               5412                       TRUE                    0
+10              3024                       TRUE                    0
+11              1284                       TRUE                    0
+12             19212                       TRUE                    0
+13             14375                       TRUE                    0
+14             43104                       TRUE                    0
+15             66120                       TRUE                    0
+16             43519                       TRUE                    0
+   assigned_difference current_difference
+1                    0                  0
+2                    0                  0
+3                    0                  0
+4                    0                  0
+5                    0                  0
+6                    0                  0
+7                    0                  0
+8                    0                  0
+9                    0                  0
+10                   0                  0
+11                   0                  0
+12                   0                  0
+13                   0                  0
+14                   0                  0
+15                   0                  0
+16                   0                  0
+# A tibble: 19 × 13
+   Ministerio    Archivo_Origen        rows first_year last_year observed_months
+   <chr>         <chr>                <int>      <int>     <int>           <int>
+ 1 Deuda_Pública SICOIN_Deuda_Públic…   264       2004      2025             264
+ 2 MAGA          SICOIN_MAGA_Unifica… 23460       2004      2025             264
+ 3 MARN          SICOIN_MARN_Unifica… 11160       2004      2025             264
+ 4 MCD           SICOIN_MCD_Unificad… 14937       2004      2025             264
+ 5 MEM           SICOIN_MEM_Unificad…  2825       2004      2025             263
+ 6 MEM           agregado_desde_PDF_…     7       2008      2008               1
+ 7 MICIVI        SICOIN_MICIVI_Unifi… 41825       2004      2025             264
+ 8 MIDES         SICOIN_MIDES_Unific…  7920       2012      2025             168
+ 9 MINDEF        SICOIN_MINDEF_Unifi…  8184       2004      2025             264
+10 MINECO        SICOIN_MINECO_Unifi…  5412       2004      2025             264
+11 MINEDUC       SICOIN_MINEDUC_2004… 66120       2004      2025             264
+12 MINEX         SICOIN_MINEX_Unific…  3024       2004      2025             264
+13 MINFIN        SICOIN_MINFIN_Unifi…  1284       2004      2025             264
+14 MINGOB        SICOIN_MINGOB_Unifi… 19212       2004      2025             264
+15 MINTRAB       SICOIN_MINTRAB_Unif… 14273       2004      2025             262
+16 MINTRAB       agregado_desde_PDF_…    51       2006      2006               1
+17 MINTRAB       agregado_desde_PDF_…    51       2006      2006               1
+18 MSPAS         SICOIN_MSPAS_Unific… 43104       2004      2025             264
+19 Secretarias   SICOIN_Secretarias_… 43519       2004      2025             264
+# ℹ 7 more variables: missing_months <int>, missing_final_names <int>,
+#   missing_department <int>, execution_negative <int>,
+#   assigned_negative <int>, current_negative <int>,
+#   missing_or_nonfinite_amounts <int>
+    Ministerio source_rows consolidated_rows identical_detail identical_summary
+1         MAGA         836               836             TRUE              TRUE
+2         MARN         523               523             TRUE              TRUE
+3          MCD         730               730             TRUE              TRUE
+4          MEM         761               761             TRUE              TRUE
+5       MICIVI        1981              1981             TRUE              TRUE
+6        MIDES         527               527             TRUE              TRUE
+7       MINDEF         862               862             TRUE              TRUE
+8       MINECO         740               740             TRUE              TRUE
+9      MINEDUC        1256              1256             TRUE              TRUE
+10       MINEX         494               494             TRUE              TRUE
+11      MINFIN         529               529             TRUE              TRUE
+12      MINGOB        1068              1068             TRUE              TRUE
+13     MINTRAB         668               668             TRUE              TRUE
+14       MSPAS         992               992             TRUE              TRUE
+15 Secretarias        3901              3901             TRUE              TRUE
+Exact duplicate rows: 41 ; repeated program keys: 2583 
+Payroll duplicate rows: 0 ; repeated keys: 23 
+Negative monthly rows: 470 ; missing ministry-months: 0 
+# A tibble: 20 × 6
+   Ministerio   Anio monthly_execution payroll_database_execution difference
+   <chr>       <dbl>             <dbl>                      <dbl>      <dbl>
+ 1 MEM          2010        113288258.                 113337757.    4.95e+4
+ 2 MCD          2025        624378820.                 624423391.    4.46e+4
+ 3 MINECO       2014        295764063.                 295768322.    4.26e+3
+ 4 MICIVI       2025       5132288861.                5132321361.    3.25e+4
+ 5 MEM          2016         67972188.                  67972188.   -1.49e-8
+ 6 MINECO       2017        546370877.                 546370877.    1.19e-7
+ 7 Secretarias  2015       1113461856.                1113461856.    2.38e-7
+ 8 Secretarias  2021       1120152782.                1120152782.    2.38e-7
+ 9 MAGA         2020       1122415902.                1122415902.   -2.38e-7
+10 MEM          2015         70789397.                  70789397.   -1.49e-8
+11 MARN         2009         73406440.                  73406440.    1.49e-8
+12 MINEX        2011        299018372.                 299018372.    5.96e-8
+13 MCD          2013        301284539.                 301284539.   -5.96e-8
+14 MINTRAB      2018        612552323.                 612552323.    1.19e-7
+15 MINGOB       2009       2476228644.                2476228644.    4.77e-7
+16 MEM          2023        310403280.                 310403280.    5.96e-8
+17 MARN         2024        159726423.                 159726423.    2.98e-8
+18 MINDEF       2021       2612783354.                2612783354.   -4.77e-7
+19 MINTRAB      2021        675417382.                 675417382.    1.19e-7
+20 MINEDUC      2007       5415556110.                5415556110.   -9.54e-7
+# ℹ 1 more variable: difference_pct <dbl>
+# A tibble: 1 × 3
+  max_total_difference max_personnel_difference max_share_difference
+                 <dbl>                    <dbl>                <dbl>
+1           0.00000191             0.0000000298             2.84e-14
+# A tibble: 3 × 11
+  Ministerio   Año  keys min_copies max_copies max_execution_range
+  <chr>      <dbl> <int>      <int>      <int>               <dbl>
+1 MCD         2024   492          1          6             189983.
+2 MCD         2025   528          1          6             140831.
+3 MEM         2008     7          1          1                  0 
+  max_assigned_range max_current_range execution_as_stored one_record_lower
+               <dbl>             <dbl>               <dbl>            <dbl>
+1            1851240           1151777          563712386.       561984719.
+2                  0           1482201          624378820.       618742612.
+3                  0                 0            2402508.         2402508.
+  one_record_upper
+             <dbl>
+1       562346352.
+2       620023498.
+3         2402508.
+   year      month rows duplicated_complete_block execution
+1  2024      ABRIL   46                     FALSE  40851667
+2  2024     AGOSTO   46                     FALSE  37951019
+3  2024  DICIEMBRE   46                     FALSE 106144916
+4  2024      ENERO   46                     FALSE  44182522
+5  2024    FEBRERO   46                     FALSE  30564487
+6  2024      JULIO   46                     FALSE  41513228
+7  2024      JUNIO   46                     FALSE  43504465
+8  2024      MARZO   46                     FALSE  32086417
+9  2024       MAYO   46                     FALSE  45259867
+10 2024  NOVIEMBRE   46                     FALSE  56468942
+11 2024    OCTUBRE   46                     FALSE  46262912
+12 2024 SEPTIEMBRE   46                     FALSE  38921944
+13 2025      ABRIL   49                     FALSE  52766933
+14 2025     AGOSTO   49                     FALSE  50189669
+15 2025  DICIEMBRE   49                     FALSE  95001869
+16 2025      ENERO   48                     FALSE  30087090
+17 2025    FEBRERO   48                     FALSE  42726985
+18 2025      JULIO   49                     FALSE  52625436
+19 2025      JUNIO   49                     FALSE  47007878
+20 2025      MARZO   49                     FALSE  42560314
+21 2025       MAYO   49                     FALSE  41067719
+22 2025  NOVIEMBRE   49                     FALSE  57774840
+23 2025    OCTUBRE   49                     FALSE  59483845
+24 2025 SEPTIEMBRE   49                     FALSE  53086240
